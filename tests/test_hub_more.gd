@@ -75,6 +75,23 @@ func test_settings_open_and_change_things() -> void:
 	assert_eq(kept.speech_rate, "normal")
 
 
+## A finger sliding up from a card or button scrolls the page: nothing on the hub or in
+## the Hall keeps its touches from the scroll box.
+func test_everything_lets_the_page_scroll() -> void:
+	var main := _open()
+	await tree.process_frame
+	var stoppers: Array = []
+	var check := func(node: Node, again: Callable) -> void:
+		if node is Control and (node as Control).mouse_filter == Control.MOUSE_FILTER_STOP:
+			stoppers.append(node.get_path())
+		for child in node.get_children():
+			again.call(child, again)
+	check.call(main.hub, check)
+	check.call(main.hall, check)
+	assert_eq(stoppers, [], "these keep a finger from scrolling")
+	_close(main)
+
+
 func test_hall_shows_what_has_been_found() -> void:
 	var main := _open()
 	assert_true(main.hall_button.text.contains("(0/4)"))

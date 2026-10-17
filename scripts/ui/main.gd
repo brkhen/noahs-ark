@@ -175,8 +175,7 @@ func _apply_settings() -> void:
 	(promise_art.material as ShaderMaterial).set_shader_parameter("grey", not settings.rainbow_seen)
 	promise_label.text = "The Promise: you saw the rainbow!" if settings.rainbow_seen else "Finish Story Sequence to see the promise"
 	promise_label.add_theme_color_override("font_color", ARK_DARK if settings.rainbow_seen else MUTED)
-	hall_button.text = "Hall of the Ark: meet Noah and his sons (%d/%d), and see what you've found" % [
-		settings.family_met.size(), HallScreen.FAMILY.size()]
+	hall_button.text = "Hall of the Ark (%d/%d)  \u25B6" % [settings.family_met.size(), HallScreen.FAMILY.size()]
 	settings_panel.refresh()
 	text_size_button.text = "Aa  %s" % Settings.TEXT_SIZE_NAMES[settings.text_size]
 	read_aloud_button.text = "Read to me: %s" % ("On" if settings.read_aloud else "Off")
@@ -395,7 +394,11 @@ func _build_hub() -> void:
 	settings_button = _fold_button("Settings", settings_panel)
 	cards.add_child(settings_button)
 	cards.add_child(settings_panel)
-	hall_button = _link_button("", ARK_DARK)
+	# A big button like Settings, so it's plain to see it opens something.
+	hall_button = _pill_button()
+	hall_button.custom_minimum_size.y = 110
+	hall_button.add_theme_font_override("font", TITLE_FONT)
+	hall_button.add_theme_font_size_override("font_size", 44)
 	hall_button.pressed.connect(open_hall)
 	cards.add_child(hall_button)
 	start_over_button = _link_button("Start over (clears progress)", Color("#A05A3C"))
@@ -413,6 +416,17 @@ func _build_hub() -> void:
 	cards.add_child(parents_notes)
 	hub_bottom = Control.new()
 	hub.add_child(hub_bottom)
+	_let_scroll.call_deferred(hub) # once the Settings panel has built its buttons
+
+
+## A finger that lands on a card or button and slides still scrolls the page: everything
+## inside passes its touches up to the scroll box instead of keeping them (a tap still
+## taps; a slide past the dead zone scrolls and cancels the tap).
+func _let_scroll(node: Node) -> void:
+	if node is Control and (node as Control).mouse_filter == Control.MOUSE_FILTER_STOP:
+		(node as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+	for child in node.get_children():
+		_let_scroll(child)
 
 
 ## The rainbow promise: the rainbow, the ark and the family, grey and locked until the
@@ -833,6 +847,7 @@ func _build_game_screen() -> void:
 	hall = HallScreen.new()
 	hall.visible = false
 	game_screen.add_child(hall)
+	_let_scroll.call_deferred(hall)
 	game_bottom = Control.new()
 	game_screen.add_child(game_bottom)
 
