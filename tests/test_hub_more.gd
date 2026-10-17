@@ -195,3 +195,32 @@ func test_iphone_new_parts_fit_and_are_easy_to_tap() -> void:
 		assert_true(r.end.x <= width + 0.5 and r.size.y >= 200.0, "face tile fits (%s)" % str(r))
 	_close(main)
 	window.size = old_size
+
+
+## The hidden testing tools: holding Settings for 7 seconds shows them (and Settings stays
+## shut); each plays its story scene straight away; holding again hides them.
+func test_holding_settings_shows_the_testing_tools() -> void:
+	var main := _open()
+	assert_false(main.owner_tools.visible, "hidden at first")
+	main.settings_button.button_down.emit()
+	main._hold_timer.timeout.emit() # but let go too soon: nothing
+	assert_false(main.owner_tools.visible, "a short press does nothing")
+	main.settings_button.button_pressed = false
+	main.settings_button.toggle_mode = true # holds it down, as a finger would
+	main.settings_button.button_pressed = true
+	main.settings_button.button_down.emit()
+	main._hold_timer.timeout.emit()
+	main.settings_button.toggle_mode = false
+	assert_true(main.owner_tools.visible, "shown after the hold")
+	main.settings_button.pressed.emit() # letting go
+	assert_false(main.settings_panel.visible, "letting go doesn't open Settings")
+	assert_true(Settings.load_saved().owner_tools, "kept")
+	for id: String in main.preview_buttons:
+		main.preview_buttons[id].pressed.emit()
+		assert_true((main.scenes[id] as StoryScene).visible, "%s scene plays" % id)
+		assert_false(main.hub_scroll.visible)
+		main.back_button.pressed.emit()
+		assert_true(main.hub_scroll.visible, "back on the hub")
+	main.toggle_owner_tools()
+	assert_false(main.owner_tools.visible, "hidden again")
+	_close(main)

@@ -35,6 +35,7 @@ var completed: Array = [] ## the games played to the end, by id
 var volume := 1.0 ## 0 to 1, for every sound and voice
 var speech_rate := "slow" ## "slow" or "normal" (RATES)
 var rainbow_seen := false ## the rainbow scene has played: the promise on the hub is unlocked
+var owner_tools := false ## the hidden testing tools are showing (hold Settings for 7 seconds)
 ## Found across every visit, for the Hall of the Ark.
 var words_found: Array = [] ## Word Search words, like "NOAH"
 var animals_found: Array = [] ## Memory Match animals, like "lion"
@@ -57,6 +58,7 @@ static func load_saved() -> Settings:
 		current.volume = clampf(file.get_value("player", "volume", 1.0), 0.0, 1.0)
 		current.speech_rate = file.get_value("player", "speech_rate", "slow")
 		current.rainbow_seen = file.get_value("player", "rainbow_seen", false)
+		current.owner_tools = file.get_value("player", "owner_tools", false)
 		current.words_found = file.get_value("hall", "words", [])
 		current.animals_found = file.get_value("hall", "animals", [])
 		current.events_found = file.get_value("hall", "events", [])
@@ -80,6 +82,7 @@ func save() -> void:
 	file.set_value("player", "volume", volume)
 	file.set_value("player", "speech_rate", speech_rate)
 	file.set_value("player", "rainbow_seen", rainbow_seen)
+	file.set_value("player", "owner_tools", owner_tools)
 	file.set_value("hall", "words", words_found)
 	file.set_value("hall", "animals", animals_found)
 	file.set_value("hall", "events", events_found)

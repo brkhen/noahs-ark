@@ -50,6 +50,7 @@ const BACK_SIZE := Vector2(260, 120)
 const SIDE_MARGIN := 28.0
 const MAX_COLUMN := 960.0 ## on a wide screen (a tablet), keep the column readable
 const GAP := 28
+const HOLD_SECONDS := 7.0 ## how long to hold Settings to show or hide the testing tools
 
 ## The prototype's colors.
 const INK := Color("#3A2E22")
@@ -97,6 +98,12 @@ var hall_button: Button
 var hall: HallScreen
 var start_over_button: Button
 var parents_button: Button ## opens and closes For Parents & Teachers
+## The hidden testing tools, as in the prototype's owner tools: play any story scene
+## straight away. Holding Settings for HOLD_SECONDS shows or hides them.
+var owner_tools: VBoxContainer
+var preview_buttons: Dictionary = {} ## game id -> the button that plays its scene
+var _hold_timer: SceneTreeTimer
+var _owner_sound: AudioStreamPlayer ## a chime when they show or hide
 var parents_notes: VBoxContainer
 var confirm: Control ## "Start over?"
 var confirm_yes: Button
@@ -177,6 +184,7 @@ func _apply_settings() -> void:
 	promise_label.add_theme_color_override("font_color", ARK_DARK if settings.rainbow_seen else MUTED)
 	hall_button.text = "Hall of the Ark (%d/%d)  \u25B6" % [settings.family_met.size(), HallScreen.FAMILY.size()]
 	settings_panel.refresh()
+	owner_tools.visible = settings.owner_tools
 	text_size_button.text = "Aa  %s" % Settings.TEXT_SIZE_NAMES[settings.text_size]
 	read_aloud_button.text = "Read to me: %s" % ("On" if settings.read_aloud else "Off")
 	voice_button.text = "Noah's voice: %s" % ("On" if settings.voice_on else "Off")
@@ -392,8 +400,10 @@ func _build_hub() -> void:
 	settings_panel.changed.connect(_apply_settings)
 	settings_panel.profile_picked.connect(_on_profile_chosen)
 	settings_button = _fold_button("Settings", settings_panel)
+	settings_button.button_down.connect(_start_hold)
 	cards.add_child(settings_button)
 	cards.add_child(settings_panel)
+	cards.add_child(_build_owner_tools())
 	# A big button like Settings, so it's plain to see it opens something.
 	hall_button = _pill_button()
 	hall_button.custom_minimum_size.y = 110
@@ -427,6 +437,68 @@ func _let_scroll(node: Node) -> void:
 		(node as Control).mouse_filter = Control.MOUSE_FILTER_PASS
 	for child in node.get_children():
 		_let_scroll(child)
+
+
+## The testing tools: a button for each story scene, hidden until Settings is held down.
+func _build_owner_tools() -> Control:
+	owner_tools = _column()
+	owner_tools.add_theme_constant_override("separation", 18)
+	owner_tools.add_child(_label("Testing tools", CARD_TITLE_SIZE, ARK_DARK, TITLE_FONT))
+	for preview: Array in [["word_search", "Preview the ark-building scene"],
+			["memory_match", "Preview the stampede scene"], ["story_sequence", "Preview Ararat and the rainbow"]]:
+		var button := _pill_button()
+		button.text = preview[1]
+		button.pressed.connect(preview_scene.bind(preview[0]))
+		owner_tools.add_child(button)
+		preview_buttons[preview[0]] = button
+	owner_tools.add_child(_label("Hold Settings for 7 seconds to hide these.", SMALL_SIZE, MUTED, BODY_FONT))
+	owner_tools.visible = Settings.current.owner_tools
+	_owner_sound = AudioStreamPlayer.new()
+	_owner_sound.stream = StoryGameScreen.make_tone([523.0, 659.0, 784.0])
+	add_child(_owner_sound)
+	return owner_tools
+
+
+## Settings held down: after HOLD_SECONDS, still held, the testing tools show or hide.
+func _start_hold() -> void:
+	if not is_inside_tree():
+		return
+	var timer := get_tree().create_timer(HOLD_SECONDS)
+	_hold_timer = timer
+	timer.timeout.connect(func() -> void:
+		if timer == _hold_timer and settings_button.is_pressed():
+			settings_button.set_meta("skip_toggle", true) # letting go doesn't open Settings too
+			toggle_owner_tools())
+
+
+func toggle_owner_tools() -> void:
+	Settings.current.owner_tools = not Settings.current.owner_tools
+	Settings.current.save()
+	owner_tools.visible = Settings.current.owner_tools
+	if _owner_sound.is_inside_tree():
+		_owner_sound.play()
+	if owner_tools.visible:
+		hub_scroll.ensure_control_visible.call_deferred(owner_tools)
+
+
+## Plays a game's story scene straight away, for testing; Back goes to the hub.
+func preview_scene(id: String) -> void:
+	if not scenes.has(id):
+		return
+	current_game = id
+	game_title.text = MiniGames.find(id)["title"]
+	_hide_scenes()
+	for key: String in games:
+		games[key].visible = false
+	hall.visible = false
+	placeholder.visible = false
+	hub_scroll.visible = false
+	game_scroll.visible = true
+	game_screen.visible = true
+	game_scroll.scroll_vertical = 0
+	var scene: StoryScene = scenes[id]
+	scene.visible = true
+	scene.play()
 
 
 ## The rainbow promise: the rainbow, the ark and the family, grey and locked until the
@@ -463,6 +535,9 @@ func _fold_button(title: String, section: Control) -> Button:
 		button.text = ("%s  \u25B2" if section.visible else "%s  \u25BC") % title
 	show_state.call()
 	button.pressed.connect(func() -> void:
+		if button.has_meta("skip_toggle"):
+			button.remove_meta("skip_toggle")
+			return
 		section.visible = not section.visible
 		show_state.call())
 	return button
