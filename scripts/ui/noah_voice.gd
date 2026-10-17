@@ -79,8 +79,8 @@ static func _reset(portrait: Control) -> void:
 
 
 static func voice_id() -> String:
-	if _voice == null:
-		_voice = _pick()
+	if _voice == null or _voice == "":
+		_voice = _pick() # tried again until the phone lists its voices
 	return _voice
 
 
