@@ -1,10 +1,11 @@
 # Story scene videos
 
-Both are the web prototype's own scenes (`docs/prototype/story-games.html`), recorded frame by frame by `tools/record_finale.js` and turned into Theora videos with ffmpeg, 1060×850 at 24 frames a second. Each `_end.png` is the video's last frame, which stays on screen after it ends.
+All three are the web prototype's own scenes (`docs/prototype/story-games.html`), recorded frame by frame by `tools/record_finale.js` and turned into Theora videos with ffmpeg, 1060×850 at 24 frames a second. Each `_end.png` is the video's last frame, which stays on screen after it ends.
 
 | File | Plays after | Prototype scene | Length |
 |---|---|---|---|
 | `rainbow_finale.ogv` | Story Sequence | `runRecedeToRainbow` then `runRainbowFinale`: the flood goes down, the dove, the rainbow | 26.8 s |
+| `ark_building.ogv` | Word Search | `runBuildScene`: Noah and his sons build the ark while others bring wood, pitch and rope | 12.9 s |
 | `stampede.ogv` | Memory Match | `runFinale`: the animals board two by two, the family goes in, the door shuts, the rain | 44.9 s |
 
 Each video carries the prototype's own sounds (hoofbeats, rain, thunder, waves, chimes): the recorder renders the page's Web Audio offline on the same clock as the pictures, and ffmpeg muxes it in as Vorbis.

@@ -58,8 +58,10 @@ var game_bottom: Control ## like hub_bottom, for the game screen
 var placeholder: PanelContainer ## the "on its way" page for games not moved over yet
 var story: StorySequenceScreen
 var memory: MemoryMatchScreen
+var words: WordSearchScreen
 var finale: StoryScene ## the flood and rainbow scene after Story Sequence's last round
 var stampede: StoryScene ## the animals boarding the ark, after Memory Match's last round
+var building: StoryScene ## the ark being built, after Word Search's last round
 var games: Dictionary = {} ## game id -> its screen, for the games moved over so far
 var scenes: Dictionary = {} ## game id -> the story scene after its last round
 var game_buttons: Dictionary = {} ## game id -> the Button that is its whole card
@@ -121,7 +123,8 @@ func open_game(id: String) -> void:
 
 
 ## After a game's last round, its story scene: after Story Sequence the flood goes down
-## and the rainbow appears; after Memory Match the animals board the ark.
+## and the rainbow appears; after Memory Match the animals board the ark; after Word Search
+## the ark is built.
 func show_finale() -> void:
 	if not scenes.has(current_game):
 		show_hub()
@@ -363,10 +366,12 @@ func _build_game_screen() -> void:
 	inside.add_child(game_how)
 	story = StorySequenceScreen.new()
 	memory = MemoryMatchScreen.new()
+	words = WordSearchScreen.new()
 	finale = StoryScene.rainbow()
 	stampede = StoryScene.stampede()
-	games = {"story_sequence": story, "memory_match": memory}
-	scenes = {"story_sequence": finale, "memory_match": stampede}
+	building = StoryScene.building()
+	games = {"story_sequence": story, "memory_match": memory, "word_search": words}
+	scenes = {"story_sequence": finale, "memory_match": stampede, "word_search": building}
 	for screen: StoryGameScreen in games.values():
 		screen.visible = false
 		screen.leave.connect(show_hub)

@@ -75,8 +75,8 @@ func test_card_opens_the_game() -> void:
 	assert_eq(story.slots.size(), 4)
 	main.show_hub()
 	main.open_game("word_search")
-	assert_false(story.visible, "other games still show their page")
-	assert_true(main.placeholder.visible)
+	assert_false(story.visible, "only the game that was opened shows")
+	assert_true(main.words.visible)
 	_close(main)
 
 

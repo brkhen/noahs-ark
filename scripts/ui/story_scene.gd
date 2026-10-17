@@ -7,6 +7,8 @@ extends VBoxContainer
 ##   animals come down from the ark, and God sets the rainbow in the clouds.
 ## - stampede(), after Memory Match (runFinale): the animals come to the ark two by two,
 ##   the family goes in, the door shuts, and the rain begins.
+## - building(), after Word Search (runBuildScene): Noah and his sons build the ark while
+##   others bring wood, pitch and rope.
 ##
 ## Each scene is the prototype's own animation, recorded into a video by
 ## tools/record_finale.js. Each part of the story shows (and is read aloud) under the
@@ -31,6 +33,10 @@ const RAINBOW_STORY := [
 		"verse": "Genesis 8:18-19. Noah went out, and his family, and every animal with them."},
 	{"at": 18.38, "text": "God set a rainbow in the clouds as a sign of His promise.",
 		"verse": "Genesis 9:13. I have set my rainbow in the clouds."},
+]
+const BUILDING_STORY := [
+	{"at": 0.0, "text": "Noah and his three sons build the ark, while others bring wood, pitch, and rope.",
+		"verse": "Genesis 6:14. God tells Noah to build the ark."},
 ]
 const STAMPEDE_STORY := [
 	{"at": 0.0, "text": "The animals walked up to the ark, two by two.",
@@ -68,6 +74,14 @@ static func rainbow() -> StoryScene:
 	scene.video_stream = load("res://assets/video/rainbow_finale.ogv")
 	scene.end_texture = load("res://assets/video/rainbow_finale_end.png")
 	scene.story = RAINBOW_STORY
+	return scene
+
+
+static func building() -> StoryScene:
+	var scene := StoryScene.new()
+	scene.video_stream = load("res://assets/video/ark_building.ogv")
+	scene.end_texture = load("res://assets/video/ark_building_end.png")
+	scene.story = BUILDING_STORY
 	return scene
 
 

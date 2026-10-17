@@ -1,6 +1,7 @@
 // Records one of the prototype's story scenes, frame by frame on virtual time: the rainbow
-// (Story Sequence's finale), or the animals boarding the ark up to the rainbow (Memory Match's).
-// Usage: NODE_PATH=$(npm root -g) node tools/record_finale.js <frames folder> 24 27 [previewRainbowBtn|previewStampedeBtn]
+// (Story Sequence's finale), the animals boarding the ark (Memory Match's), or the ark being
+// built (Word Search's).
+// Usage: NODE_PATH=$(npm root -g) node tools/record_finale.js <frames folder> 24 27 [previewRainbowBtn|previewStampedeBtn|previewBuildBtn]
 // then: ffmpeg -framerate 24 -start_number 3 -i <frames folder>/%04d.png -ss 0.1667 -i <frames folder>/sound.wav
 //   -c:v libtheora -q:v 7 -pix_fmt yuv420p -c:a libvorbis -q:a 5 -shortest assets/video/rainbow_finale.ogv
 // (frames 0-2 are the page still fading in, so the video starts at frame 3, which is 4/24 s into the sound)
@@ -66,9 +67,10 @@ const BUTTON = process.argv[5] || 'previewRainbowBtn'; // previewStampedeBtn rec
     await p.evaluate(() => window.__syncAnimations());
     const box = await p.evaluate(() => {
       const fin = document.getElementById('finalePanel'), rb = document.getElementById('rainbowPanel');
-      const st = !rb.classList.contains('hidden') ? document.getElementById('rainbowStage') : document.getElementById('finaleStage');
+      const build = !document.getElementById('wsBuildPanel').classList.contains('hidden');
+      const st = document.getElementById(!rb.classList.contains('hidden') ? 'rainbowStage' : build ? 'buildStage' : 'finaleStage');
       let r = { x: 0, y: 0, width: st.offsetWidth, height: st.offsetHeight }; for (let e = st; e; e = e.offsetParent) { r.x += e.offsetLeft; r.y += e.offsetTop; }
-      const msg = !rb.classList.contains('hidden') ? document.getElementById('rainbowMsg') : document.getElementById('finaleMsg');
+      const msg = document.getElementById(!rb.classList.contains('hidden') ? 'rainbowMsg' : build ? 'buildMsg' : 'finaleMsg');
       return { rainbow: !rb.classList.contains('hidden'), x: r.x - scrollX, y: r.y - scrollY, w: r.width, h: r.height, msg: msg.classList.contains('show') ? msg.textContent : '' };
     });
     // The animals' scene runs on into the rainbow; that part is its own recording.
