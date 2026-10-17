@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Placeholder app icon: the ark resting on a green mountaintop under a rainbow. Opaque square; iOS rounds the corners.
+       The finished icon gets made in Claude's Design canvas. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5E9FD8"/><stop offset="1" stop-color="#CFE6F5"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#sky)"/>
+  <g fill="none" stroke-width="44" opacity="0.9">
+    <path d="M152 640 A360 360 0 0 1 872 640" stroke="#E2574C"/>
+    <path d="M196 640 A316 316 0 0 1 828 640" stroke="#F2B33D"/>
+    <path d="M240 640 A272 272 0 0 1 784 640" stroke="#7FBF59"/>
+    <path d="M284 640 A228 228 0 0 1 740 640" stroke="#4A90D9"/>
+  </g>
+  <path d="M0 760 L190 560 L330 690 L520 470 L720 680 L840 580 L1024 750 L1024 1024 L0 1024 Z" fill="#E8EEF2"/>
+  <path d="M0 820 Q260 650 512 700 Q770 650 1024 800 L1024 1024 L0 1024 Z" fill="#5E9C43"/>
+  <path d="M0 900 Q300 800 512 830 Q760 800 1024 890 L1024 1024 L0 1024 Z" fill="#2E5F6E"/>
+  <path d="M250 640 L774 640 L712 760 L312 760 Z" fill="#6B4A2E" stroke="#3A2818" stroke-width="16" stroke-linejoin="round"/>
+  <rect x="380" y="560" width="264" height="84" fill="#8A6440" stroke="#3A2818" stroke-width="16"/>
+  <path d="M360 566 L512 500 L664 566 Z" fill="#3A2818"/>
+  <rect x="490" y="588" width="44" height="56" rx="8" fill="#F5EBD7"/>
+  <line x1="290" y1="700" x2="734" y2="700" stroke="#4A3220" stroke-width="10"/>
+</svg>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<!-- Phone-friendly: no pinch-zoom of the page, and use the whole screen (the game itself
+	     keeps its buttons clear of the notch and home bar). -->
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+	<!-- "Add to Home Screen" opens it full screen like an app. -->
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<meta name="apple-mobile-web-app-title" content="Noah's Ark">
+	<meta name="theme-color" content="#2b5c86">
+	<title>$GODOT_PROJECT_NAME</title>
+	<style>
+html, body, #canvas { margin: 0; padding: 0; border: 0; }
+html, body { width: 100%; height: 100%; background: #2b5c86; overflow: hidden; touch-action: none;
+	-webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+#canvas { display: block; position: fixed; left: 0; top: 0; }
+#canvas:focus { outline: none; }
+.bd-screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+	justify-content: center; text-align: center; color: #fbeec8; background: #2b5c86;
+	font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; z-index: 10;
+	padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+#bd-start h1 { font-size: min(9vw, 9vh); margin: 0 0 3vh 0; color: #ffd75a; }
+.bd-button { font-size: min(5vw, 6vh); padding: 2vh 6vw; margin: 1.2vh; border-radius: 3vh; border: 3px solid #ffe08a;
+	background: #3d76a8; color: #fff8e0; font-weight: 600; cursor: pointer; }
+.bd-button.secondary { font-size: min(3.6vw, 4.5vh); background: transparent; }
+#bd-hint { font-size: min(3.2vw, 4vh); color: #d8e8f5; margin-top: 2vh; max-width: 80vw; }
+#bd-progress { width: 50vw; margin-top: 3vh; display: none; }
+#bd-error { display: none; color: #ffb4a8; margin-top: 2vh; max-width: 80vw; }
+/* A phone held sideways: ask to turn it upright (the game is portrait only). */
+#bd-rotate { display: none; z-index: 20; }
+#bd-rotate .phone { width: 10vh; height: 18vh; border: 0.6vh solid #ffd75a; border-radius: 1.8vh;
+	animation: bd-turn 1.8s ease-in-out infinite; margin-bottom: 5vh; }
+@keyframes bd-turn { 0%, 30% { transform: rotate(-90deg); } 60%, 100% { transform: rotate(0deg); } }
+@media (orientation: landscape) and (max-height: 500px) { #bd-rotate { display: flex; } }
+	</style>
+	$GODOT_HEAD_INCLUDE
+</head>
+<body>
+	<canvas id="canvas">Your browser does not support the canvas tag.</canvas>
+	<noscript>Noah's Ark needs JavaScript to run.</noscript>
+
+	<div id="bd-start" class="bd-screen">
+		<h1>Noah's Ark</h1>
+		<button id="bd-play" class="bd-button">Tap to start</button>
+		<button id="bd-play-full" class="bd-button secondary" style="display:none">Play full screen</button>
+		<progress id="bd-progress"></progress>
+		<div id="bd-hint"></div>
+		<div id="bd-error"></div>
+	</div>
+
+	<div id="bd-rotate" class="bd-screen">
+		<div class="phone"></div>
+		<div style="font-size: 6vh">Turn your phone upright to play</div>
+	</div>
+
+	<script src="$GODOT_URL"></script>
+	<script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+const engine = new Engine(GODOT_CONFIG);
+
+(function () {
+	const start = document.getElementById('bd-start');
+	const play = document.getElementById('bd-play');
+	const playFull = document.getElementById('bd-play-full');
+	const progress = document.getElementById('bd-progress');
+	const hint = document.getElementById('bd-hint');
+	const errorBox = document.getElementById('bd-error');
+	const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+	const standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+	const canFullscreen = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && !isIOS;
+
+	if (canFullscreen) {
+		playFull.style.display = 'inline-block';
+	}
+	if (isIOS && !standalone) {
+		hint.textContent = 'For full screen: tap Share, then "Add to Home Screen", and open it from there.';
+	}
+
+	function showError(err) {
+		console.error(err);
+		errorBox.textContent = (err && err.message) ? err.message : String(err);
+		errorBox.style.display = 'block';
+		progress.style.display = 'none';
+	}
+
+	// Phones only let a page play sound and speak after a tap, so the first tap does both:
+	// it wakes the audio and the voices, then starts the game.
+	function unlockAudioAndVoices() {
+		try {
+			const Ctx = window.AudioContext || window.webkitAudioContext;
+			if (Ctx) {
+				const ctx = new Ctx();
+				const buffer = ctx.createBuffer(1, 1, 22050);
+				const source = ctx.createBufferSource();
+				source.buffer = buffer;
+				source.connect(ctx.destination);
+				source.start(0);
+				ctx.resume();
+			}
+		} catch (e) { /* no audio: the game still runs */ }
+		try {
+			if ('speechSynthesis' in window) {
+				const u = new SpeechSynthesisUtterance(' ');
+				u.volume = 0;
+				window.speechSynthesis.speak(u);
+				window.speechSynthesis.getVoices(); // starts loading the voice list
+			}
+		} catch (e) { /* no voices: speech bubbles still show */ }
+	}
+
+	let started = false;
+	function begin(fullscreen) {
+		if (started) {
+			return;
+		}
+		started = true;
+		unlockAudioAndVoices();
+		if (fullscreen) {
+			const el = document.documentElement;
+			const req = el.requestFullscreen || el.webkitRequestFullscreen;
+			if (req) {
+				try { req.call(el); } catch (e) { /* stay windowed */ }
+			}
+		}
+		play.style.display = 'none';
+		playFull.style.display = 'none';
+		hint.textContent = 'Loading...';
+		progress.style.display = 'block';
+		const missing = Engine.getMissingFeatures({ threads: GODOT_THREADS_ENABLED });
+		if (missing.length !== 0) {
+			showError('This browser is missing: ' + missing.join(', '));
+			return;
+		}
+		engine.startGame({
+			'onProgress': function (current, total) {
+				if (current > 0 && total > 0) {
+					progress.value = current;
+					progress.max = total;
+				}
+			},
+		}).then(() => {
+			start.remove();
+		}, showError);
+	}
+
+	play.addEventListener('click', () => begin(false));
+	playFull.addEventListener('click', () => begin(true));
+	// For automated checks only: ?autostart skips the tap and echoes the console to the
+	// local test server (it shows up in that server's log). Never used by players.
+	if (new URLSearchParams(window.location.search).has('autostart')) {
+		['log', 'warn', 'error'].forEach((kind) => {
+			const original = console[kind].bind(console);
+			console[kind] = function (...args) {
+				original(...args);
+				try { fetch('/__console?' + kind + '=' + encodeURIComponent(args.join(' ')).slice(0, 1500)); } catch (e) { /* ignore */ }
+			};
+		});
+		window.addEventListener('error', (e) => console.error('uncaught: ' + e.message));
+		begin(false);
+	}
+}());
+	</script>
+</body>
+</html>

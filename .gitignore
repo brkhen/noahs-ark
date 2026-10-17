@@ -1,0 +1,16 @@
+# Godot 4 cache and generated files
+.godot/
+/android/
+
+# Export output
+/builds/
+
+# Signing secrets - never commit these
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+export_credentials.cfg
+
+# macOS
+.DS_Store
