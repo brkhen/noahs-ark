@@ -15,7 +15,9 @@ extends VBoxContainer
 ## picture, with its verse. The videos carry the prototype's own sounds (rain, thunder,
 ## hoofbeats, chimes). Noah calls his sons in his own voice. When a part is being read
 ## aloud, the picture (and its sounds) waits at the next part until the reading is done,
-## so the words always go with what's on screen and never talk over each other.
+## so the words always go with what's on screen and never talk over each other. While
+## a part is read, the scene's own sounds (the storm, the rain) turn down so the words
+## stand out, and come back up after.
 
 signal done ## the player tapped "Back to Hub"
 
@@ -68,6 +70,7 @@ var caption: Label
 var verse: Label
 var back_button: Button
 var part := -1 ## which part of the story is showing
+const QUIET_DB := -16.0 ## the scene's sounds while a part is read
 var max_hold := 10.0 ## the longest the picture waits for a reading to finish, in seconds
 var _voice := ""
 var _held := 0.0 ## how long the picture has waited so far
@@ -169,6 +172,7 @@ func _ready() -> void:
 ## Starts the scene from the beginning.
 func play() -> void:
 	part = -1
+	video.volume_db = 0.0
 	video.visible = true
 	video.stream_position = 0.0
 	video.play()
@@ -186,6 +190,8 @@ func stop() -> void:
 func _process(delta: float) -> void:
 	if not visible or not video.is_playing():
 		return
+	var target := QUIET_DB if _still_reading() else 0.0
+	video.volume_db = move_toward(video.volume_db, target, delta * 40.0) # eases down and up
 	if video.paused: # waiting for the reading to finish
 		_held += delta
 		if not _still_reading() or _held >= max_hold:
