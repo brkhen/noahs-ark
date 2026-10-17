@@ -10,7 +10,7 @@
 
 - [x] **A1. Godot project created**, set up like Backyard Dominoes: Godot 4.7, Mobile renderer, the same 1080 base canvas, iOS and Web export presets. See [PROJECT-SETTINGS.md](PROJECT-SETTINGS.md).
 - [x] **A2. Folders:** `scenes/`, `scripts/ui/`, `scripts/game/`, `assets/art/`, `assets/audio/`, `data/`, `tests/`, `docs/`, `web/`.
-- [x] **A3. The hub screen** (`scenes/main.tscn`): the title, original painted alpine scenery with the ark on the hill, and big buttons for Word Search, Memory Match and Story Sequence. Each opens its own screen with a large Back button. Everything stays clear of the notch and home bar.
+- [x] **A3. The hub screen** (`scenes/main.tscn`), laid out like the Story Games artifact: the painted ark scene with the gold "Noah's Ark: Story Games" title, Noah's welcome bubble, and a card for each game (Word Search, Memory Match, Story Sequence) with its little picture and a Play button. A tap anywhere on a card opens the game, and each game screen has a large Back button. It uses the artifact's own art, colors and fonts (Cinzel and Quicksand). Everything stays clear of the notch and home bar.
 - [x] **A4. Automated tests:** 4 of 4 pass in Godot 4.7.2 (hub, open and go back, iPhone 18 Pro Max layout inside the safe area).
 - [x] **A5. A placeholder app icon** (`icon.svg`). The real icon gets made in Claude's Design canvas.
 
@@ -39,7 +39,8 @@ Each step ends with something you can play on the Mac and in the Simulator.
 - [ ] **C1. Story Sequence** (the simplest game): tap the events in order, with the timeline filling in and a "Round Complete!" screen.
 - [ ] **C2. Memory Match:** the flip cards and animal pairs.
 - [ ] **C3. Word Search:** the letter grid, tap first and last letter or drag.
-- [ ] **C4. "Who's playing today?"** and saved settings: profiles, text size, read-aloud.
-- [ ] **C5. Noah's voice and congratulations.**
+- [ ] **C4. "Who's playing today?"** and saved settings: profiles, your name, text size (the Aa button), read-aloud.
+- [ ] **C5. Noah's voice and congratulations** (tap Noah to hear him).
+- [ ] **C5b. The rest of the hub:** the locked rainbow promise, Settings, Hall of the Ark, Start over, and For Parents & Teachers.
 - [ ] **C6. Painted art** from the Illustration Art Direction Brief, replacing the placeholder scenery.
 - [ ] **C7. Check on your iPhone 18 Pro Max** (needs the Apple Developer account).

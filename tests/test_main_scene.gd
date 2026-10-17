@@ -21,7 +21,7 @@ func _close(main: Control) -> void:
 func test_hub_shows_three_games() -> void:
 	var main := _open_main()
 	assert_eq(main.current_game, "")
-	assert_true(main.hub.visible, "hub visible")
+	assert_true(main.hub_scroll.visible, "hub visible")
 	assert_false(main.game_screen.visible, "game screen hidden")
 	assert_eq(main.game_buttons.size(), 3)
 	for id: String in ["word_search", "memory_match", "story_sequence"]:
@@ -38,7 +38,7 @@ func test_tap_game_then_back() -> void:
 		assert_eq(main.game_title.text, game["title"])
 		main.back_button.pressed.emit()
 		assert_eq(main.current_game, "")
-		assert_true(main.hub.visible, "back on the hub after %s" % game["id"])
+		assert_true(main.hub_scroll.visible, "back on the hub after %s" % game["id"])
 	_close(main)
 
 
@@ -46,11 +46,11 @@ func test_unknown_game_stays_on_hub() -> void:
 	var main := _open_main()
 	main.open_game("not_a_game")
 	assert_eq(main.current_game, "")
-	assert_true(main.hub.visible)
+	assert_true(main.hub_scroll.visible)
 	_close(main)
 
 
-## On the iPhone shape, with its notch and home bar, every button is a big target
+## On the iPhone shape, with its notch and home bar, every game card is a big target
 ## and nothing reaches into the safe-area margins.
 func test_iphone_layout_inside_safe_area() -> void:
 	var window := tree.root
@@ -65,11 +65,16 @@ func test_iphone_layout_inside_safe_area() -> void:
 	await tree.process_frame
 	assert_true(screen.y > screen.x, "portrait canvas (%s)" % str(screen))
 	var safe := Rect2(insets.x, insets.y, screen.x - insets.x - insets.z, screen.y - insets.y - insets.w)
-	var buttons: Array = main.game_buttons.values()
-	for button: Button in buttons:
-		var r := button.get_global_rect()
-		assert_true(safe.encloses(r), "%s inside safe area (%s)" % [button.text.get_slice("\n", 0), str(r)])
-		assert_true(r.size.y >= MIN_TAP, "%s tall enough" % button.text.get_slice("\n", 0))
+	var scroll: Rect2 = main.hub_scroll.get_global_rect()
+	assert_true(safe.encloses(scroll), "the hub scrolls inside the safe area (%s)" % str(scroll))
+	# The hub can be taller than the screen; scroll each card into view and check it there.
+	for id: String in main.game_buttons:
+		var card: Button = main.game_buttons[id]
+		main.hub_scroll.ensure_control_visible(card)
+		await tree.process_frame
+		var r := card.get_global_rect()
+		assert_true(scroll.encloses(r), "%s card fully on screen after scrolling (%s)" % [id, str(r)])
+		assert_true(r.size.y >= MIN_TAP, "%s card tall enough" % id)
 	main.open_game("word_search")
 	await tree.process_frame
 	var back: Rect2 = main.back_button.get_global_rect()
