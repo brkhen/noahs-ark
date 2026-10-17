@@ -31,7 +31,7 @@ Screenshots: [hub](screenshots/hub.png), [game screen](screenshots/game_screen.p
   ~/NoahsArk/tools/run_simulator.sh
   ```
   It exports from Godot to `builds/ios/NoahsArk.xcodeproj`, builds it, and opens it on the largest virtual iPhone. Use this again after every change.
-  *Why a script:* on an Intel Mac, Xcode's Run button builds for the wrong chip ("Undefined symbol: _main"). The script builds for the right one, the same way Backyard Dominoes does.
+  *Why a script:* Xcode's Run button builds for the wrong chip type ("Undefined symbol: _main"), because Godot's simulator library is Intel-only (x86_64). The script builds for x86_64, and the Simulator runs it with Rosetta.
 
 **Not needed yet:** the Apple Developer Program ($99/year). It's only needed to put the app on your real iPhone and to publish.
 
