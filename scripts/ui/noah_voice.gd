@@ -5,12 +5,20 @@ extends RefCounted
 ## "Noah's voice" on the hub turns him quiet. Also how his portrait moves: a bob while he
 ## talks, a happy wiggle when he cheers (noahCheer), and a shake for "think again".
 
-## Men's voices, best first, as the prototype's pickMaleVoice looks for them (plus iPhone ones).
-const PREFERRED := ["Daniel", "David", "Alex", "Fred", "Aaron", "Arthur", "Gordon", "Rishi", "Male"]
+## Men's voices, best first: the iPhone's own (Daniel comes with every iPhone), then the
+## prototype's pickMaleVoice names. Novelty voices like Fred are left out: on an iPhone
+## they can stay silent.
+const PREFERRED := ["Daniel", "Aaron", "Arthur", "Gordon", "Rishi", "David", "Male"]
+## If his voice hasn't started within this many seconds, the line is said again in the
+## phone's first English voice, and that voice is used from then on.
+const START_SECONDS := 1.5
 const PITCH := 0.82
 const RATE := 0.9 ## the prototype's slow pace, which every profile starts with
 
 static var _voice: Variant = null ## the chosen voice's id, once looked up
+static var _next_id := 1000 ## utterance ids, apart from the reader's (0)
+static var _waiting_id := -1 ## the line we're listening to start, or -1
+static var _listening := false
 
 
 ## Says text in Noah's voice. Returns about how long that takes, or 0.0 when he stays quiet.
@@ -20,8 +28,38 @@ static func say(text: String) -> float:
 	var id := voice_id()
 	if id == "":
 		return 0.0
-	DisplayServer.tts_speak(text, id, 50, PITCH, RATE, 0, true)
+	_listen()
+	_next_id += 1
+	var utterance := _next_id
+	_waiting_id = utterance
+	DisplayServer.tts_speak(text, id, 50, PITCH, RATE, utterance, true)
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree != null and DisplayServer.get_name() != "headless":
+		tree.create_timer(START_SECONDS).timeout.connect(func() -> void:
+			if _waiting_id == utterance:
+				_fall_back(text))
 	return seconds_for(text)
+
+
+## His voice didn't start: say it in the reader's voice (which works), a little lower, and
+## keep that voice for him.
+static func _fall_back(text: String) -> void:
+	_waiting_id = -1
+	var voices := DisplayServer.tts_get_voices_for_language("en")
+	if voices.is_empty() or voices[0] == _voice:
+		return
+	print("Noah's voice %s didn't start; using %s" % [_voice, voices[0]])
+	_voice = voices[0]
+	DisplayServer.tts_speak(text, _voice, 50, PITCH, RATE, 0, true)
+
+
+static func _listen() -> void:
+	if _listening:
+		return
+	_listening = true
+	DisplayServer.tts_set_utterance_callback(DisplayServer.TTS_UTTERANCE_STARTED, func(id: int) -> void:
+		if id == _waiting_id:
+			_waiting_id = -1)
 
 
 ## About how long text takes to say (the prototype allows 68 ms a letter).
@@ -87,6 +125,10 @@ static func voice_id() -> String:
 static func _pick() -> String:
 	var english := DisplayServer.tts_get_voices().filter(func(v: Dictionary) -> bool:
 		return str(v.get("language", "")).begins_with("en"))
+	# On an iPhone, only its standard voices (not the novelty or downloadable ones).
+	var standard := english.filter(func(v: Dictionary) -> bool: return str(v["id"]).contains("com.apple.voice."))
+	if not standard.is_empty():
+		english = standard
 	for wanted: String in PREFERRED:
 		for v: Dictionary in english:
 			if str(v["name"]).contains(wanted):
@@ -95,4 +137,6 @@ static func _pick() -> String:
 		var n := str(v["name"]).to_lower()
 		if n.contains("male") and not n.contains("female"):
 			return v["id"]
-	return english[0]["id"] if not english.is_empty() else ""
+	var chosen: String = english[0]["id"] if not english.is_empty() else ""
+	print("Noah's voice: ", chosen)
+	return chosen
