@@ -39,7 +39,7 @@ Screenshots: [hub](screenshots/hub.png), [game screen](screenshots/game_screen.p
 
 Each step ends with something you can play on the Mac and in the Simulator.
 
-- [ ] **C1. Story Sequence** (the simplest game): tap the events in order, with the timeline filling in and a "Round Complete!" screen.
+- [x] **C1. Story Sequence** (the simplest game): tap the events in order, with the timeline filling in and a "Round Complete!" screen. Done 2026-10-17: three rounds (4, 5, 6 events), the prototype's own pictures, Noah's cheers and "Hmm, think again!", chimes, "Hear the choices" read aloud, and "Leave this round?" before Back loses progress. No timer ("No rush"). Still to come with C5/C5b: the rainbow finale after the last round, and the prototype's timer setting. Screenshot: `docs/screenshots/story_sequence.png`.
 - [ ] **C2. Memory Match:** the flip cards and animal pairs.
 - [ ] **C3. Word Search:** the letter grid, tap first and last letter or drag.
 - [ ] **C4. "Who's playing today?"** and saved settings: profiles, your name, text size (the Aa button), read-aloud.

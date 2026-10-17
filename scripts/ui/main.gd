@@ -1,9 +1,9 @@
 extends Control
 ## The app's first screen: the hub, laid out like the web prototype's (docs/prototype/).
 ## The painted ark scene and title at the top, Noah's welcome, then a card for each story
-## game. Tapping anywhere on a card opens that game. The games themselves are moved over
-## from the prototype one at a time (docs/MILESTONE-1.md); until then each game screen
-## says how it will play.
+## game. Tapping anywhere on a card opens that game. The games are moved over from the
+## prototype one at a time (docs/MILESTONE-1.md): Story Sequence is here; until the others
+## arrive, their screens say how they will play.
 ##
 ## Portrait only (see docs/PROJECT-SETTINGS.md). Everything sits inside the safe area,
 ## clear of the notch, the Dynamic Island, and the home bar.
@@ -52,7 +52,11 @@ var hub_scroll: ScrollContainer
 var hub: VBoxContainer
 var hub_bottom: Control ## room below the last card, so it can scroll clear of the home bar
 var hero_title: Label
+var game_scroll: ScrollContainer
 var game_screen: VBoxContainer
+var game_bottom: Control ## like hub_bottom, for the game screen
+var placeholder: PanelContainer ## the "on its way" page for games not moved over yet
+var story: StorySequenceScreen
 var game_buttons: Dictionary = {} ## game id -> the Button that is its whole card
 var back_button: Button
 var game_title: Label
@@ -87,6 +91,7 @@ func _ready() -> void:
 func show_hub() -> void:
 	current_game = ""
 	hub_scroll.visible = true
+	game_scroll.visible = false
 	game_screen.visible = false
 
 
@@ -97,14 +102,28 @@ func open_game(id: String) -> void:
 	current_game = id
 	game_title.text = game["title"]
 	game_how.text = "%s\n\nThis game is on its way from the prototype." % game["how"]
+	story.visible = id == "story_sequence"
+	placeholder.visible = not story.visible
+	if story.visible:
+		story.start()
 	hub_scroll.visible = false
+	game_scroll.visible = true
 	game_screen.visible = true
+	game_scroll.scroll_vertical = 0
+
+
+## Back: a game in the middle of a round asks first.
+func go_back() -> void:
+	if current_game == "story_sequence":
+		story.request_leave()
+	else:
+		show_hub()
 
 
 ## Android's back gesture and a desktop's Escape key both go back to the hub.
 func _unhandled_input(event: InputEvent) -> void:
 	if current_game != "" and event.is_action_pressed("ui_cancel"):
-		show_hub()
+		go_back()
 		get_viewport().set_input_as_handled()
 
 
@@ -279,8 +298,14 @@ func _game_card(game: Dictionary) -> Button:
 
 
 func _build_game_screen() -> void:
+	game_scroll = ScrollContainer.new()
+	game_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	game_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	game_scroll.scroll_deadzone = 24
+	page.add_child(game_scroll)
 	game_screen = _column()
-	page.add_child(game_screen)
+	game_screen.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	game_scroll.add_child(game_screen)
 	back_button = Button.new()
 	back_button.text = "< Back"
 	back_button.custom_minimum_size = BACK_SIZE
@@ -296,17 +321,23 @@ func _build_game_screen() -> void:
 	back_button.add_theme_stylebox_override("pressed", pressed)
 	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		back_button.add_theme_color_override(key, ARK_DARK)
-	back_button.pressed.connect(show_hub)
+	back_button.pressed.connect(go_back)
 	game_screen.add_child(back_button)
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _box(PANEL, 48, 6, GOLD, 40))
-	game_screen.add_child(panel)
+	placeholder = PanelContainer.new()
+	placeholder.add_theme_stylebox_override("panel", _box(PANEL, 48, 6, GOLD, 40))
+	game_screen.add_child(placeholder)
 	var inside := _column()
-	panel.add_child(inside)
+	placeholder.add_child(inside)
 	game_title = _label("", 72, ARK_DARK, TITLE_FONT)
 	inside.add_child(game_title)
 	game_how = _label("", BODY_SIZE, INK)
 	inside.add_child(game_how)
+	story = StorySequenceScreen.new()
+	story.leave.connect(show_hub)
+	story.finished.connect(show_hub)
+	game_screen.add_child(story)
+	game_bottom = Control.new()
+	game_screen.add_child(game_bottom)
 
 
 func _column() -> VBoxContainer:
@@ -360,6 +391,7 @@ func _layout() -> void:
 	# short of it; the space below the last card lets it scroll clear of the bar.
 	page.add_theme_constant_override("margin_bottom", 0)
 	hub_bottom.custom_minimum_size.y = insets.w + 20.0
+	game_bottom.custom_minimum_size.y = insets.w + 20.0
 
 
 ## The safe area in canvas pixels: left, top, right, bottom.
