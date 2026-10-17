@@ -10,7 +10,8 @@ extends VBoxContainer
 ##
 ## Each scene is the prototype's own animation, recorded into a video by
 ## tools/record_finale.js. Each part of the story shows (and is read aloud) under the
-## picture, with its verse.
+## picture, with its verse. The videos carry the prototype's own sounds (rain, thunder,
+## hoofbeats, chimes).
 
 signal done ## the player tapped "Back to Hub"
 
@@ -31,7 +32,6 @@ const RAINBOW_STORY := [
 	{"at": 18.38, "text": "God set a rainbow in the clouds as a sign of His promise.",
 		"verse": "Genesis 9:13. I have set my rainbow in the clouds."},
 ]
-const RAINBOW_AT := 17.67 ## when the rainbow starts to appear, for its chime
 const STAMPEDE_STORY := [
 	{"at": 0.0, "text": "The animals walked up to the ark, two by two.",
 		"verse": "Genesis 7:9. The animals came to Noah two by two."},
@@ -52,7 +52,6 @@ const GOLD := Color("#C9962E")
 var video_stream: VideoStream
 var end_texture: Texture2D ## the video's last frame, which stays up after it ends
 var story: Array = [] ## the parts, like RAINBOW_STORY
-var chime_at := -1.0 ## seconds into the video for a glad chime, or -1 for none
 
 var picture: AspectRatioContainer
 var video: VideoStreamPlayer
@@ -61,8 +60,6 @@ var caption: Label
 var verse: Label
 var back_button: Button
 var part := -1 ## which part of the story is showing
-var _sound: AudioStreamPlayer
-var _chimed := false
 var _voice := ""
 
 
@@ -71,7 +68,6 @@ static func rainbow() -> StoryScene:
 	scene.video_stream = load("res://assets/video/rainbow_finale.ogv")
 	scene.end_texture = load("res://assets/video/rainbow_finale_end.png")
 	scene.story = RAINBOW_STORY
-	scene.chime_at = RAINBOW_AT
 	return scene
 
 
@@ -143,8 +139,6 @@ func _ready() -> void:
 		stop()
 		done.emit())
 	add_child(back_button)
-	_sound = AudioStreamPlayer.new()
-	add_child(_sound)
 	# The picture is as tall as its width calls for (a box doesn't size itself to a ratio).
 	resized.connect(func() -> void:
 		picture.custom_minimum_size.y = size.x / picture.ratio)
@@ -156,7 +150,6 @@ func _ready() -> void:
 ## Starts the scene from the beginning.
 func play() -> void:
 	part = -1
-	_chimed = false
 	video.visible = true
 	video.stream_position = 0.0
 	video.play()
@@ -183,9 +176,6 @@ func show_at(seconds: float) -> void:
 			now = i
 	if now != part:
 		_show_part(now)
-	if not _chimed and chime_at >= 0.0 and seconds >= chime_at:
-		_chimed = true
-		_glad_chime()
 
 
 func _show_part(index: int) -> void:
@@ -200,31 +190,6 @@ func _show_part(index: int) -> void:
 func _on_video_finished() -> void:
 	video.visible = false
 	_show_part(story.size() - 1)
-
-
-## Four rising notes, as when the rainbow appears, like the prototype's.
-func _glad_chime() -> void:
-	var rate := 22050
-	var notes := [523.0, 659.0, 784.0, 1046.0]
-	var step := int(rate * 0.18)
-	var ring := int(rate * 0.65)
-	var length := step * (notes.size() - 1) + ring
-	var samples := PackedFloat32Array()
-	samples.resize(length)
-	for n in notes.size():
-		for i in ring:
-			var t := float(i) / rate
-			samples[n * step + i] += sin(TAU * notes[n] * t) * minf(t / 0.05, 1.0) * exp(-t * 7.0) * 0.2
-	var data := PackedByteArray()
-	data.resize(length * 2)
-	for i in length:
-		data.encode_s16(i * 2, int(clampf(samples[i], -1.0, 1.0) * 32767.0))
-	var wav := AudioStreamWAV.new()
-	wav.format = AudioStreamWAV.FORMAT_16_BITS
-	wav.mix_rate = rate
-	wav.data = data
-	_sound.stream = wav
-	_sound.play()
 
 
 func _box(fill: Color, radius: int, border: int, border_color: Color, margin: float) -> StyleBoxFlat:

@@ -1,8 +1,10 @@
 // Records one of the prototype's story scenes, frame by frame on virtual time: the rainbow
 // (Story Sequence's finale), or the animals boarding the ark up to the rainbow (Memory Match's).
 // Usage: NODE_PATH=$(npm root -g) node tools/record_finale.js <frames folder> 24 27 [previewRainbowBtn|previewStampedeBtn]
-// then: ffmpeg -framerate 24 -start_number 3 -i <frames folder>/%04d.png -c:v libtheora -q:v 7 -pix_fmt yuv420p assets/video/rainbow_finale.ogv
-// (frames 0-2 are the page still fading in, so the video starts at frame 3)
+// then: ffmpeg -framerate 24 -start_number 3 -i <frames folder>/%04d.png -ss 0.1667 -i <frames folder>/sound.wav
+//   -c:v libtheora -q:v 7 -pix_fmt yuv420p -c:a libvorbis -q:a 5 -shortest assets/video/rainbow_finale.ogv
+// (frames 0-2 are the page still fading in, so the video starts at frame 3, which is 4/24 s into the sound)
+// The scene's sounds (rain, thunder, hoofbeats...) are the prototype's own Web Audio, rendered into sound.wav.
 const { chromium } = require('playwright');
 const fs = require('fs');
 const SCALE = 2.5; // 1060x850 frames: sharp on a phone, light enough to play smoothly
@@ -26,6 +28,22 @@ const BUTTON = process.argv[5] || 'previewRainbowBtn'; // previewStampedeBtn rec
       }
     };
   });
+  // The page's sound engine renders offline instead, on the same virtual clock as the pictures,
+  // so every sound lands on its frame. It's written out as sound.wav at the end.
+  await p.addInitScript(secs => {
+    const Offline = window.OfflineAudioContext;
+    window.AudioContext = window.webkitAudioContext = function () {
+      const ctx = new Offline(2, Math.ceil(48000 * secs), 48000);
+      Object.defineProperty(ctx, 'currentTime', { get: () => window.__t === undefined ? 0 : Math.max(0, (performance.now() - window.__t) / 1000) });
+      Object.defineProperty(ctx, 'state', { get: () => 'running' });
+      ctx.resume = ctx.suspend = () => Promise.resolve();
+      window.__actx = ctx;
+      return ctx;
+    };
+    // Cutting a sound off is done with a gain ramp, which keeps its time; a disconnect would
+    // silence the whole offline render, so leave everything connected.
+    AudioNode.prototype.disconnect = function () {};
+  }, SECS + 1);
   await p.goto('file://' + require('path').resolve(__dirname, '../docs/prototype/story-games.html'));
   await p.waitForTimeout(2000);
   for (const sel of ['[data-profile="grownup"]', '#introDismissBtn', '#ncGo']) {
@@ -67,5 +85,27 @@ const BUTTON = process.argv[5] || 'previewRainbowBtn'; // previewStampedeBtn rec
     fs.writeFileSync(`${out}/${String(i).padStart(4, '0')}.png`, Buffer.from(shot.data, 'base64'));
     fs.appendFileSync(`${out}/captions.txt`, `${i}\t${box.msg}\n`);
   }
+  // Render the sound, nudging the clock along until it's done (it waits on the page's clock).
+  await p.evaluate(() => { if (window.__actx) window.__actx.startRendering().then(buf => { window.__sound = buf; }); });
+  for (let k = 0; k < 600 && await p.evaluate(() => !!window.__actx && !window.__sound); k++) {
+    await new Promise(res => { cdp.once('Emulation.virtualTimeBudgetExpired', res); cdp.send('Emulation.setVirtualTimePolicy', { policy: 'advance', budget: 100 }); });
+    await new Promise(res => setTimeout(res, 50));
+  }
+  const wav = await p.evaluate(() => {
+    const buf = window.__sound;
+    if (!buf) return null;
+    const n = buf.length, ch = buf.numberOfChannels, out = new DataView(new ArrayBuffer(44 + n * ch * 2));
+    const str = (o, t) => [...t].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
+    str(0, 'RIFF'); out.setUint32(4, 36 + n * ch * 2, true); str(8, 'WAVEfmt '); out.setUint32(16, 16, true);
+    out.setUint16(20, 1, true); out.setUint16(22, ch, true); out.setUint32(24, buf.sampleRate, true);
+    out.setUint32(28, buf.sampleRate * ch * 2, true); out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true);
+    str(36, 'data'); out.setUint32(40, n * ch * 2, true);
+    const data = [...Array(ch).keys()].map(c => buf.getChannelData(c));
+    for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) out.setInt16(44 + (i * ch + c) * 2, Math.max(-1, Math.min(1, data[c][i])) * 32767, true);
+    let bin = ''; const bytes = new Uint8Array(out.buffer);
+    for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode(...bytes.subarray(i, i + 32768));
+    return btoa(bin);
+  });
+  if (wav) fs.writeFileSync(`${out}/sound.wav`, Buffer.from(wav, 'base64'));
   await b.close();
 })();
