@@ -57,7 +57,11 @@ var game_screen: VBoxContainer
 var game_bottom: Control ## like hub_bottom, for the game screen
 var placeholder: PanelContainer ## the "on its way" page for games not moved over yet
 var story: StorySequenceScreen
-var finale: RainbowFinale ## the flood and rainbow scene after Story Sequence's last round
+var memory: MemoryMatchScreen
+var finale: StoryScene ## the flood and rainbow scene after Story Sequence's last round
+var stampede: StoryScene ## the animals boarding the ark, after Memory Match's last round
+var games: Dictionary = {} ## game id -> its screen, for the games moved over so far
+var scenes: Dictionary = {} ## game id -> the story scene after its last round
 var game_buttons: Dictionary = {} ## game id -> the Button that is its whole card
 var back_button: Button
 var game_title: Label
@@ -91,9 +95,7 @@ func _ready() -> void:
 
 func show_hub() -> void:
 	current_game = ""
-	if finale != null:
-		finale.stop()
-		finale.visible = false
+	_hide_scenes()
 	hub_scroll.visible = true
 	game_scroll.visible = false
 	game_screen.visible = false
@@ -106,33 +108,43 @@ func open_game(id: String) -> void:
 	current_game = id
 	game_title.text = game["title"]
 	game_how.text = "%s\n\nThis game is on its way from the prototype." % game["how"]
-	story.visible = id == "story_sequence"
-	finale.visible = false
-	finale.stop()
-	placeholder.visible = not story.visible
-	if story.visible:
-		story.start()
+	_hide_scenes()
+	for key: String in games:
+		games[key].visible = key == id
+	placeholder.visible = not games.has(id)
+	if games.has(id):
+		games[id].start()
 	hub_scroll.visible = false
 	game_scroll.visible = true
 	game_screen.visible = true
 	game_scroll.scroll_vertical = 0
 
 
-## After Story Sequence's last round: the flood goes down and the rainbow appears.
+## After a game's last round, its story scene: after Story Sequence the flood goes down
+## and the rainbow appears; after Memory Match the animals board the ark.
 func show_finale() -> void:
-	story.visible = false
-	finale.visible = true
+	if not scenes.has(current_game):
+		show_hub()
+		return
+	games[current_game].visible = false
+	var scene: StoryScene = scenes[current_game]
+	scene.visible = true
 	game_scroll.scroll_vertical = 0
-	finale.play()
+	scene.play()
+
+
+func _hide_scenes() -> void:
+	for scene: StoryScene in scenes.values():
+		scene.stop()
+		scene.visible = false
 
 
 ## Back: a game in the middle of a round asks first.
 func go_back() -> void:
-	if finale.visible:
-		finale.stop()
+	if scenes.has(current_game) and (scenes[current_game] as StoryScene).visible:
 		show_hub()
-	elif current_game == "story_sequence":
-		story.request_leave()
+	elif games.has(current_game):
+		games[current_game].request_leave()
 	else:
 		show_hub()
 
@@ -350,13 +362,20 @@ func _build_game_screen() -> void:
 	game_how = _label("", BODY_SIZE, INK)
 	inside.add_child(game_how)
 	story = StorySequenceScreen.new()
-	story.leave.connect(show_hub)
-	story.finished.connect(show_finale)
-	game_screen.add_child(story)
-	finale = RainbowFinale.new()
-	finale.visible = false
-	finale.done.connect(show_hub)
-	game_screen.add_child(finale)
+	memory = MemoryMatchScreen.new()
+	finale = StoryScene.rainbow()
+	stampede = StoryScene.stampede()
+	games = {"story_sequence": story, "memory_match": memory}
+	scenes = {"story_sequence": finale, "memory_match": stampede}
+	for screen: StoryGameScreen in games.values():
+		screen.visible = false
+		screen.leave.connect(show_hub)
+		screen.finished.connect(show_finale)
+		game_screen.add_child(screen)
+	for scene: StoryScene in scenes.values():
+		scene.visible = false
+		scene.done.connect(show_hub)
+		game_screen.add_child(scene)
 	game_bottom = Control.new()
 	game_screen.add_child(game_bottom)
 

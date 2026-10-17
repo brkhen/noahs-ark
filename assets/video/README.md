@@ -1,7 +1,12 @@
-# Rainbow scene video
+# Story scene videos
 
-`rainbow_finale.ogv` is the web prototype's own flood-and-rainbow scene (`docs/prototype/story-games.html`, `runRecedeToRainbow` then `runRainbowFinale`), recorded frame by frame by `tools/record_finale.js` and turned into a Theora video with ffmpeg. It's 1060×850 at 24 frames a second and runs 26.8 seconds. `rainbow_finale_end.png` is its last frame, which stays on screen after the video ends.
+Both are the web prototype's own scenes (`docs/prototype/story-games.html`), recorded frame by frame by `tools/record_finale.js` and turned into Theora videos with ffmpeg, 1060×850 at 24 frames a second. Each `_end.png` is the video's last frame, which stays on screen after it ends.
 
-The words and verses under the picture are drawn by the app (`scripts/ui/rainbow_finale.gd`), not baked into the video, so they stay sharp and get read aloud.
+| File | Plays after | Prototype scene | Length |
+|---|---|---|---|
+| `rainbow_finale.ogv` | Story Sequence | `runRecedeToRainbow` then `runRainbowFinale`: the flood goes down, the dove, the rainbow | 26.8 s |
+| `stampede.ogv` | Memory Match | `runFinale`: the animals board two by two, the family goes in, the door shuts, the rain | 44.9 s |
 
-The art is the prototype's own original drawings. This video is a placeholder until the painted art (MILESTONE-1 C6) arrives.
+The words and verses under the picture are drawn by the app (`scripts/ui/story_scene.gd`), not baked into the video, so they stay sharp and get read aloud.
+
+The art is the prototype's own original drawings. These videos are placeholders until the painted art (MILESTONE-1 C6) arrives.

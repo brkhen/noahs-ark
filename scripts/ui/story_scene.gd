@@ -1,24 +1,25 @@
-class_name RainbowFinale
+class_name StoryScene
 extends VBoxContainer
-## The scene after the last round of Story Sequence, as in the web prototype
-## (docs/prototype/, runRecedeToRainbow and runRainbowFinale): the flood goes down, the ark
-## rests on Mount Ararat, Noah sends out the dove, the family and the animals come down
-## from the ark, and God sets the rainbow in the clouds.
+## A story scene that plays after a game's last round, as in the web prototype
+## (docs/prototype/):
+## - rainbow(), after Story Sequence (runRecedeToRainbow and runRainbowFinale): the flood
+##   goes down, the ark rests on Mount Ararat, Noah sends out the dove, the family and the
+##   animals come down from the ark, and God sets the rainbow in the clouds.
+## - stampede(), after Memory Match (runFinale): the animals come to the ark two by two,
+##   the family goes in, the door shuts, and the rain begins.
 ##
-## The scene is the prototype's own animation, recorded into a video by
+## Each scene is the prototype's own animation, recorded into a video by
 ## tools/record_finale.js. Each part of the story shows (and is read aloud) under the
 ## picture, with its verse.
 
 signal done ## the player tapped "Back to Hub"
 
-const VIDEO := preload("res://assets/video/rainbow_finale.ogv")
-const END_FRAME := preload("res://assets/video/rainbow_finale_end.png")
 const TITLE_FONT := preload("res://assets/fonts/Cinzel-700.ttf")
 const BODY_FONT := preload("res://assets/fonts/Quicksand-600.ttf")
 const BOLD_FONT := preload("res://assets/fonts/Quicksand-700.ttf")
 
 ## When each part of the story starts, in seconds into the video (from the recording).
-const STORY := [
+const RAINBOW_STORY := [
 	{"at": 0.0, "text": "The ark had floated upon the waters for many days.",
 		"verse": "Genesis 7:24. The waters flooded the earth for 150 days."},
 	{"at": 3.04, "text": "The waters went down, and the ark came to rest on the mountains of Ararat.",
@@ -31,6 +32,16 @@ const STORY := [
 		"verse": "Genesis 9:13. I have set my rainbow in the clouds."},
 ]
 const RAINBOW_AT := 17.67 ## when the rainbow starts to appear, for its chime
+const STAMPEDE_STORY := [
+	{"at": 0.0, "text": "The animals walked up to the ark, two by two.",
+		"verse": "Genesis 7:9. The animals came to Noah two by two."},
+	{"at": 9.04, "text": "\u201cShem, Japheth, Ham! Find your wives, gather your things, and enter the ark before the rain comes!\u201d",
+		"verse": "Genesis 6:18, 21. You shall go into the ark, you and your sons and your wife and your sons' wives. Take every kind of food."},
+	{"at": 32.75, "text": "Then the Lord shut the door behind them.",
+		"verse": "Genesis 7:16. The Lord shut him in."},
+	{"at": 34.33, "text": "The rain fell hard, and the ark rose upon the waters.",
+		"verse": "Genesis 7:17-18. The waters increased and lifted the ark."},
+]
 
 const INK := Color("#3A2E22")
 const ARK_DARK := Color("#4A3220")
@@ -38,22 +49,44 @@ const CREAM := Color("#FBF2DC")
 const CARD_EDGE := Color("#C7AD7C")
 const GOLD := Color("#C9962E")
 
+var video_stream: VideoStream
+var end_texture: Texture2D ## the video's last frame, which stays up after it ends
+var story: Array = [] ## the parts, like RAINBOW_STORY
+var chime_at := -1.0 ## seconds into the video for a glad chime, or -1 for none
+
 var picture: AspectRatioContainer
 var video: VideoStreamPlayer
 var end_frame: TextureRect
 var caption: Label
 var verse: Label
 var back_button: Button
-var part := -1 ## which part of STORY is showing
+var part := -1 ## which part of the story is showing
 var _sound: AudioStreamPlayer
 var _chimed := false
 var _voice := ""
 
 
+static func rainbow() -> StoryScene:
+	var scene := StoryScene.new()
+	scene.video_stream = load("res://assets/video/rainbow_finale.ogv")
+	scene.end_texture = load("res://assets/video/rainbow_finale_end.png")
+	scene.story = RAINBOW_STORY
+	scene.chime_at = RAINBOW_AT
+	return scene
+
+
+static func stampede() -> StoryScene:
+	var scene := StoryScene.new()
+	scene.video_stream = load("res://assets/video/stampede.ogv")
+	scene.end_texture = load("res://assets/video/stampede_end.png")
+	scene.story = STAMPEDE_STORY
+	return scene
+
+
 func _ready() -> void:
 	add_theme_constant_override("separation", 26)
 	picture = AspectRatioContainer.new()
-	picture.ratio = float(END_FRAME.get_width()) / END_FRAME.get_height()
+	picture.ratio = float(end_texture.get_width()) / end_texture.get_height()
 	picture.stretch_mode = AspectRatioContainer.STRETCH_WIDTH_CONTROLS_HEIGHT
 	add_child(picture)
 	var frame := PanelContainer.new()
@@ -65,12 +98,12 @@ func _ready() -> void:
 	frame.clip_children = CanvasItem.CLIP_CHILDREN_ONLY # round the picture's corners
 	picture.add_child(frame)
 	end_frame = TextureRect.new()
-	end_frame.texture = END_FRAME
+	end_frame.texture = end_texture
 	end_frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	end_frame.stretch_mode = TextureRect.STRETCH_SCALE
 	frame.add_child(end_frame)
 	video = VideoStreamPlayer.new()
-	video.stream = VIDEO
+	video.stream = video_stream
 	video.expand = true
 	video.finished.connect(_on_video_finished)
 	frame.add_child(video)
@@ -145,32 +178,32 @@ func _process(_delta: float) -> void:
 ## Shows the part of the story for this moment of the video.
 func show_at(seconds: float) -> void:
 	var now := 0
-	for i in STORY.size():
-		if seconds >= STORY[i]["at"]:
+	for i in story.size():
+		if seconds >= story[i]["at"]:
 			now = i
 	if now != part:
 		_show_part(now)
-	if not _chimed and seconds >= RAINBOW_AT:
+	if not _chimed and chime_at >= 0.0 and seconds >= chime_at:
 		_chimed = true
-		_rainbow_chime()
+		_glad_chime()
 
 
 func _show_part(index: int) -> void:
 	part = index
-	caption.text = STORY[index]["text"]
-	verse.text = STORY[index]["verse"]
+	caption.text = story[index]["text"]
+	verse.text = story[index]["verse"]
 	if _voice != "":
 		DisplayServer.tts_speak(caption.text, _voice, 50, 1.0, 0.9, 0, true)
 
 
-## The video ends on the family under the rainbow; that picture stays.
+## When the video ends, its last picture stays (the family under the rainbow, or the ark in the rain).
 func _on_video_finished() -> void:
 	video.visible = false
-	_show_part(STORY.size() - 1)
+	_show_part(story.size() - 1)
 
 
-## Four rising notes as the rainbow appears, like the prototype's.
-func _rainbow_chime() -> void:
+## Four rising notes, as when the rainbow appears, like the prototype's.
+func _glad_chime() -> void:
 	var rate := 22050
 	var notes := [523.0, 659.0, 784.0, 1046.0]
 	var step := int(rate * 0.18)
