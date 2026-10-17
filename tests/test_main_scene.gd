@@ -66,14 +66,17 @@ func test_iphone_layout_inside_safe_area() -> void:
 	assert_true(screen.y > screen.x, "portrait canvas (%s)" % str(screen))
 	var safe := Rect2(insets.x, insets.y, screen.x - insets.x - insets.z, screen.y - insets.y - insets.w)
 	var scroll: Rect2 = main.hub_scroll.get_global_rect()
-	assert_true(safe.encloses(scroll), "the hub scrolls inside the safe area (%s)" % str(scroll))
+	# The hub scrolls under the home bar, but never under the Dynamic Island or off the sides.
+	var visible_area := Rect2(safe.position, Vector2(safe.size.x, screen.y - safe.position.y - insets.w))
+	assert_true(scroll.position.y >= safe.position.y and scroll.position.x >= safe.position.x and scroll.end.x <= safe.end.x,
+			"the hub stays below the Dynamic Island and inside the sides (%s)" % str(scroll))
 	# The hub can be taller than the screen; scroll each card into view and check it there.
 	for id: String in main.game_buttons:
 		var card: Button = main.game_buttons[id]
 		main.hub_scroll.ensure_control_visible(card)
 		await tree.process_frame
 		var r := card.get_global_rect()
-		assert_true(scroll.encloses(r), "%s card fully on screen after scrolling (%s)" % [id, str(r)])
+		assert_true(visible_area.encloses(r), "%s card fully on screen after scrolling (%s)" % [id, str(r)])
 		assert_true(r.size.y >= MIN_TAP, "%s card tall enough" % id)
 	main.open_game("word_search")
 	await tree.process_frame

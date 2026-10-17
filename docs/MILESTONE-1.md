@@ -26,12 +26,12 @@ Screenshots: [hub](screenshots/hub.png), [game screen](screenshots/game_screen.p
 - [ ] **B2. Open it in Godot.** Open Godot, click **Import**, choose `~/NoahsArk/project.godot`, then **Import & Edit**.
   *Why:* Godot sets up its own cache files the first time.
 - [ ] **B3. Press Play** (the ▶ button, top right). An upright phone-shaped window shows the hub. Tap each game and Back.
-- [ ] **B4. Run it in the iPhone Simulator.** In Terminal:
-  ```
-  ~/NoahsArk/tools/run_simulator.sh
-  ```
-  It exports from Godot to `builds/ios/NoahsArk.xcodeproj`, builds it, and opens it on the largest virtual iPhone. Use this again after every change.
-  *Why a script:* Xcode's Run button builds for the wrong chip type ("Undefined symbol: _main"), because Godot's simulator library is Intel-only (x86_64). The script builds for x86_64, and the Simulator runs it with Rosetta.
+- [x] **B4. Run it on your iPhone** (done 2026-10-17). The iPhone Simulator can't run Godot games on this Mac (Godot's simulator files are Intel-only and the iOS 27 simulators are Apple-chip only), so we test on the real iPhone 18 Pro Max instead:
+  1. In Godot: **Project → Export…**, pick **iOS Simulator**, **Export Project…**, and save as `builds/ios/NoahsArk.xcodeproj`.
+  2. Open `builds/ios/NoahsArk.xcodeproj` in Xcode and choose **Brian's iPhone 18 Pro Max** at the top.
+  3. In **Signing & Capabilities**, under **Signing (Debug)**, set **Team** to **Brian Hennington (Personal Team)**.
+  4. Unlock the phone and press **▶ Run**.
+  With the free Personal Team, the app stops opening after 7 days. Running it again from Xcode renews it.
 
 **Not needed yet:** the Apple Developer Program ($99/year). It's only needed to put the app on your real iPhone and to publish.
 

@@ -50,6 +50,7 @@ var backdrop: TextureRect
 var page: MarginContainer ## holds the hub or a game screen, inside the safe area
 var hub_scroll: ScrollContainer
 var hub: VBoxContainer
+var hub_bottom: Control ## room below the last card, so it can scroll clear of the home bar
 var hero_title: Label
 var game_screen: VBoxContainer
 var game_buttons: Dictionary = {} ## game id -> the Button that is its whole card
@@ -135,6 +136,8 @@ func _build_hub() -> void:
 		var card := _game_card(game)
 		cards.add_child(card)
 		game_buttons[game["id"]] = card
+	hub_bottom = Control.new()
+	hub.add_child(hub_bottom)
 
 
 ## The painted ark scene in a gold-edged frame, with the title across its sky.
@@ -353,7 +356,10 @@ func _layout() -> void:
 	page.add_theme_constant_override("margin_left", int(insets.x + SIDE_MARGIN + extra))
 	page.add_theme_constant_override("margin_right", int(insets.z + SIDE_MARGIN + extra))
 	page.add_theme_constant_override("margin_top", int(insets.y + 20.0))
-	page.add_theme_constant_override("margin_bottom", int(insets.w + 20.0))
+	# The hub scrolls right to the bottom edge (behind the home bar) instead of stopping
+	# short of it; the space below the last card lets it scroll clear of the bar.
+	page.add_theme_constant_override("margin_bottom", 0)
+	hub_bottom.custom_minimum_size.y = insets.w + 20.0
 
 
 ## The safe area in canvas pixels: left, top, right, bottom.
