@@ -107,8 +107,32 @@ func test_play_all_three_rounds_then_back_to_hub() -> void:
 		var last := r == 2
 		assert_eq(story.overlay_title.text, "The Whole Story!" if last else "Round Complete!")
 		story.overlay_button.pressed.emit()
-	assert_eq(main.current_game, "", "finishing goes back to the hub")
+	assert_true(main.finale.visible, "the rainbow scene follows the last round")
+	assert_false(story.visible)
+	assert_eq(main.finale.caption.text, RainbowFinale.STORY[0]["text"])
+	main.finale.back_button.pressed.emit()
+	assert_eq(main.current_game, "", "Back to Hub from the rainbow scene")
 	assert_true(main.hub_scroll.visible)
+	assert_false(main.finale.visible)
+	_close(main)
+
+
+func test_rainbow_scene_tells_the_story_in_order() -> void:
+	var main := _open_story()
+	main.show_finale()
+	var finale: RainbowFinale = main.finale
+	var last := -1.0
+	for i in RainbowFinale.STORY.size():
+		var part: Dictionary = RainbowFinale.STORY[i]
+		assert_true(part["at"] > last, "parts in order")
+		last = part["at"]
+		finale.show_at(part["at"] + 0.1)
+		assert_eq(finale.caption.text, part["text"])
+		assert_true((finale.verse.text as String).begins_with("Genesis"), "verse for part %d" % i)
+	assert_true(RainbowFinale.STORY[-1]["at"] < finale.video.get_stream_length() or finale.video.get_stream_length() == 0.0,
+			"the last part starts before the video ends")
+	main.back_button.pressed.emit()
+	assert_eq(main.current_game, "", "Back leaves the scene too")
 	_close(main)
 
 

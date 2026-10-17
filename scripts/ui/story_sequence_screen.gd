@@ -7,7 +7,7 @@ extends VBoxContainer
 ## gentle shake and Noah says to think again. Three rounds, each a longer story. No timer.
 
 signal leave ## the player chose to go back to the hub (after confirming, mid-round)
-signal finished ## the player finished the last round and tapped Continue
+signal finished ## the player finished the last round and tapped "See the promise"
 
 const TITLE_FONT := preload("res://assets/fonts/Cinzel-700.ttf")
 const BODY_FONT := preload("res://assets/fonts/Quicksand-600.ttf")
@@ -159,7 +159,7 @@ func _on_card(card: Button, event: Dictionary) -> void:
 
 func _show_round_complete() -> void:
 	if game.is_last_round():
-		_show_overlay("The Whole Story!", "You placed every event in order, all the way to God's promise.", "Continue", "finish")
+		_show_overlay("The Whole Story!", "You placed every event in order, all the way to God's promise.", "See the promise", "finish")
 	else:
 		_show_overlay("Round Complete!", "Great memory! A longer story is next.", "Continue", "continue")
 

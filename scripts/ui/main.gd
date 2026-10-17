@@ -57,6 +57,7 @@ var game_screen: VBoxContainer
 var game_bottom: Control ## like hub_bottom, for the game screen
 var placeholder: PanelContainer ## the "on its way" page for games not moved over yet
 var story: StorySequenceScreen
+var finale: RainbowFinale ## the flood and rainbow scene after Story Sequence's last round
 var game_buttons: Dictionary = {} ## game id -> the Button that is its whole card
 var back_button: Button
 var game_title: Label
@@ -90,6 +91,9 @@ func _ready() -> void:
 
 func show_hub() -> void:
 	current_game = ""
+	if finale != null:
+		finale.stop()
+		finale.visible = false
 	hub_scroll.visible = true
 	game_scroll.visible = false
 	game_screen.visible = false
@@ -103,6 +107,8 @@ func open_game(id: String) -> void:
 	game_title.text = game["title"]
 	game_how.text = "%s\n\nThis game is on its way from the prototype." % game["how"]
 	story.visible = id == "story_sequence"
+	finale.visible = false
+	finale.stop()
 	placeholder.visible = not story.visible
 	if story.visible:
 		story.start()
@@ -112,9 +118,20 @@ func open_game(id: String) -> void:
 	game_scroll.scroll_vertical = 0
 
 
+## After Story Sequence's last round: the flood goes down and the rainbow appears.
+func show_finale() -> void:
+	story.visible = false
+	finale.visible = true
+	game_scroll.scroll_vertical = 0
+	finale.play()
+
+
 ## Back: a game in the middle of a round asks first.
 func go_back() -> void:
-	if current_game == "story_sequence":
+	if finale.visible:
+		finale.stop()
+		show_hub()
+	elif current_game == "story_sequence":
 		story.request_leave()
 	else:
 		show_hub()
@@ -334,8 +351,12 @@ func _build_game_screen() -> void:
 	inside.add_child(game_how)
 	story = StorySequenceScreen.new()
 	story.leave.connect(show_hub)
-	story.finished.connect(show_hub)
+	story.finished.connect(show_finale)
 	game_screen.add_child(story)
+	finale = RainbowFinale.new()
+	finale.visible = false
+	finale.done.connect(show_hub)
+	game_screen.add_child(finale)
 	game_bottom = Control.new()
 	game_screen.add_child(game_bottom)
 
