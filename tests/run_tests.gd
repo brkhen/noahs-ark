@@ -8,6 +8,7 @@ const TEST_FILES := [
 	"res://tests/test_story_sequence.gd",
 	"res://tests/test_memory_match.gd",
 	"res://tests/test_word_search.gd",
+	"res://tests/test_settings.gd",
 ]
 
 
@@ -35,6 +36,8 @@ func _process(_delta: float) -> bool:
 
 
 func _run_all() -> void:
+	# Tests keep their settings apart from a real player's, and each starts from none saved.
+	Settings.path = "user://test_settings.cfg"
 	var errors := ErrorCounter.new()
 	OS.add_logger(errors)
 	var total := 0
@@ -52,6 +55,7 @@ func _run_all() -> void:
 			var name: String = method["name"]
 			if not name.begins_with("test_"):
 				continue
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(Settings.path))
 			var case: TestCase = script.new()
 			case.tree = self
 			case.current_test = name

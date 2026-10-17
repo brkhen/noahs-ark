@@ -196,7 +196,7 @@ func _show_part(index: int) -> void:
 	part = index
 	caption.text = story[index]["text"]
 	verse.text = story[index]["verse"]
-	if _voice != "":
+	if _voice != "" and Settings.current.read_aloud:
 		DisplayServer.tts_speak(caption.text, _voice, 50, 1.0, 0.9, 0, true)
 
 

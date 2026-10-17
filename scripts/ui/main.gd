@@ -2,8 +2,9 @@ extends Control
 ## The app's first screen: the hub, laid out like the web prototype's (docs/prototype/).
 ## The painted ark scene and title at the top, Noah's welcome, then a card for each story
 ## game. Tapping anywhere on a card opens that game. The games are moved over from the
-## prototype one at a time (docs/MILESTONE-1.md): Story Sequence is here; until the others
-## arrive, their screens say how they will play.
+## prototype one at a time (docs/MILESTONE-1.md). Above the games: who's playing (with
+## their names) and the Aa, Read to me and Who's playing buttons; a new player is first
+## asked who's playing (ProfilePicker). Settings are kept on the phone (Settings).
 ##
 ## Portrait only (see docs/PROJECT-SETTINGS.md). Everything sits inside the safe area,
 ## clear of the notch, the Dynamic Island, and the home bar.
@@ -65,12 +66,20 @@ var building: StoryScene ## the ark being built, after Word Search's last round
 var games: Dictionary = {} ## game id -> its screen, for the games moved over so far
 var scenes: Dictionary = {} ## game id -> the story scene after its last round
 var game_buttons: Dictionary = {} ## game id -> the Button that is its whole card
+var noah_says: Label ## Noah's welcome, with the players' names
+var name_input: LineEdit
+var co_name_input: LineEdit ## who's playing with them (optional)
+var text_size_button: Button ## Aa: Normal, Large, Extra large
+var read_aloud_button: Button
+var profile_button: Button ## "Who's playing": brings the picker back
+var picker: ProfilePicker ## "Who's playing today?" over the hub
 var back_button: Button
 var game_title: Label
 var game_how: Label
 
 
 func _ready() -> void:
+	Settings.load_saved()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	theme = _make_theme()
 	var sky := ColorRect.new() # shows through below the backdrop on very tall screens
@@ -90,9 +99,48 @@ func _ready() -> void:
 	add_child(page)
 	_build_hub()
 	_build_game_screen()
+	picker = ProfilePicker.new()
+	picker.chosen.connect(_on_profile_chosen)
+	add_child(picker)
+	picker.visible = not Settings.current.profile_chosen() # the first thing a new player sees
 	resized.connect(_layout)
+	_apply_settings()
 	_layout()
 	show_hub()
+
+
+func _on_profile_chosen(kind: String) -> void:
+	Settings.current.choose_profile(kind)
+	picker.visible = false
+	_apply_settings()
+
+
+## Shows the saved settings on the hub, and draws everything at the chosen text size.
+func _apply_settings() -> void:
+	var settings := Settings.current
+	get_tree().root.content_scale_factor = settings.text_scale()
+	text_size_button.text = "Aa  %s" % Settings.TEXT_SIZE_NAMES[settings.text_size]
+	read_aloud_button.text = "Read to me: %s" % ("On" if settings.read_aloud else "Off")
+	profile_button.text = "Who's playing: %s" % Settings.PROFILE_NAMES.get(settings.profile, "?")
+	noah_says.text = settings.greeting()
+
+
+func _on_text_size() -> void:
+	Settings.current.next_text_size()
+	_apply_settings()
+
+
+func _on_read_aloud() -> void:
+	Settings.current.read_aloud = not Settings.current.read_aloud
+	Settings.current.save()
+	_apply_settings()
+
+
+func _on_names_changed(_text: String) -> void:
+	Settings.current.player_name = name_input.text.strip_edges()
+	Settings.current.co_play_name = co_name_input.text.strip_edges()
+	Settings.current.save()
+	noah_says.text = Settings.current.greeting()
 
 
 func show_hub() -> void:
@@ -178,11 +226,13 @@ func _build_hub() -> void:
 	hub_scroll.add_child(hub)
 	hub.add_child(_build_hero())
 	hub.add_child(_build_noah_says())
+	hub.add_child(_build_tools())
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", _box(PANEL, 48, 6, GOLD, 30))
 	hub.add_child(panel)
 	var cards := _column()
 	panel.add_child(cards)
+	cards.add_child(_build_who())
 	for game: Dictionary in MiniGames.LIST:
 		var card := _game_card(game)
 		cards.add_child(card)
@@ -259,10 +309,88 @@ func _build_noah_says() -> Control:
 	bubble.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bubble.add_theme_stylebox_override("panel", _box(Color(1.0, 0.98, 0.93, 0.95), 40, 0, ARK_DARK, 28))
 	row.add_child(bubble)
-	var says := _label("Welcome, friend! Pick a game to play.", BODY_SIZE, INK, BOLD_FONT)
-	says.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	bubble.add_child(says)
+	noah_says = _label("Welcome, friend! Pick a game to play.", BODY_SIZE, INK, BOLD_FONT)
+	noah_says.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	bubble.add_child(noah_says)
 	return row
+
+
+## The settings anyone can reach from the hub: text size (Aa), reading aloud, and who's playing.
+func _build_tools() -> Control:
+	var row := HFlowContainer.new()
+	row.alignment = FlowContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("h_separation", 18)
+	row.add_theme_constant_override("v_separation", 18)
+	text_size_button = _pill_button()
+	text_size_button.pressed.connect(_on_text_size)
+	row.add_child(text_size_button)
+	read_aloud_button = _pill_button()
+	read_aloud_button.pressed.connect(_on_read_aloud)
+	row.add_child(read_aloud_button)
+	profile_button = _pill_button()
+	profile_button.pressed.connect(func() -> void: picker.visible = true)
+	row.add_child(profile_button)
+	return row
+
+
+## "Who's playing today?" with a box for your name, and one for who's playing with you.
+func _build_who() -> Control:
+	var column := _column()
+	column.add_theme_constant_override("separation", 18)
+	column.add_child(_label("Who's playing today?", CARD_TITLE_SIZE, ARK_DARK, TITLE_FONT))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 18)
+	column.add_child(row)
+	name_input = _name_box("Your name")
+	name_input.text = Settings.current.player_name
+	row.add_child(name_input)
+	co_name_input = _name_box("Playing with...")
+	co_name_input.text = Settings.current.co_play_name
+	row.add_child(co_name_input)
+	for box: LineEdit in [name_input, co_name_input]:
+		box.text_changed.connect(_on_names_changed)
+	return column
+
+
+func _name_box(hint: String) -> LineEdit:
+	var box := LineEdit.new()
+	box.placeholder_text = hint
+	box.max_length = 24
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.custom_minimum_size = Vector2(0, 110)
+	box.add_theme_font_override("font", BOLD_FONT)
+	box.add_theme_font_size_override("font_size", BODY_SIZE)
+	box.add_theme_color_override("font_color", INK)
+	box.add_theme_color_override("font_placeholder_color", MUTED)
+	box.add_theme_color_override("caret_color", INK)
+	var normal := _box(Color.WHITE, 30, 4, CARD_EDGE, 0)
+	normal.content_margin_left = 28
+	normal.content_margin_right = 28
+	var focus := normal.duplicate() as StyleBoxFlat
+	focus.border_color = GOLD
+	box.add_theme_stylebox_override("normal", normal)
+	box.add_theme_stylebox_override("focus", focus)
+	return box
+
+
+## A cream pill with a gold edge, like the prototype's Aa button.
+func _pill_button() -> Button:
+	var button := Button.new()
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(0, 100)
+	button.add_theme_font_override("font", BOLD_FONT)
+	button.add_theme_font_size_override("font_size", SMALL_SIZE)
+	var normal := _box(Color(1.0, 0.97, 0.9, 0.94), 50, 5, GOLD, 0)
+	normal.content_margin_left = 36
+	normal.content_margin_right = 36
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = CARD
+	for state in ["normal", "hover", "focus"]:
+		button.add_theme_stylebox_override(state, normal)
+	button.add_theme_stylebox_override("pressed", pressed)
+	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		button.add_theme_color_override(key, ARK_DARK)
+	return button
 
 
 ## One game's card: its little picture, its name, what it is, and a Play pill.

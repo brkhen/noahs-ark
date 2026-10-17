@@ -117,7 +117,7 @@ func _hear_choices() -> void:
 	# Read the cards in the order they're laid out, skipping ones already placed.
 	for card: Button in card_grid.get_children():
 		if not card.disabled:
-			_speak(card.get_meta("label"), false)
+			_speak(card.get_meta("label"), false, true)
 
 
 ## The prompt, Hear the choices, the timeline, and the cards.

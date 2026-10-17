@@ -103,7 +103,7 @@ func _hear_words() -> void:
 	_stop_speaking()
 	for p: Dictionary in game.placements:
 		if not p["word"] in game.found:
-			_speak(p["label"], false)
+			_speak(p["label"], false, true)
 
 
 ## The finger went down on a letter.

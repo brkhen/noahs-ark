@@ -163,7 +163,10 @@ func _after(seconds: float, action: Callable) -> void:
 		get_tree().create_timer(seconds).timeout.connect(action)
 
 
-func _speak(text: String, interrupt := true) -> void:
+## Reads text aloud when "Read to me" is on; force reads it anyway (a Hear button was tapped).
+func _speak(text: String, interrupt := true, force := false) -> void:
+	if not (Settings.current.read_aloud or force):
+		return
 	if _voice != "" and text != "":
 		DisplayServer.tts_speak(text, _voice, 50, 1.0, 0.9, 0, interrupt)
 

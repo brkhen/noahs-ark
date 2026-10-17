@@ -75,6 +75,9 @@ func test_iphone_layout_inside_safe_area() -> void:
 		var card: Button = main.game_buttons[id]
 		main.hub_scroll.ensure_control_visible(card)
 		await tree.process_frame
+		# The scroll box runs down behind the home bar, so nudge the card up clear of it.
+		main.hub_scroll.scroll_vertical += int(ceilf(maxf(0.0, card.get_global_rect().end.y - visible_area.end.y)))
+		await tree.process_frame
 		var r := card.get_global_rect()
 		assert_true(visible_area.encloses(r), "%s card fully on screen after scrolling (%s)" % [id, str(r)])
 		assert_true(r.size.y >= MIN_TAP, "%s card tall enough" % id)
