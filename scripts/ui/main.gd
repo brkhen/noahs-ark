@@ -3,8 +3,10 @@ extends Control
 ## The painted ark scene and title at the top, Noah's welcome, then a card for each story
 ## game. Tapping anywhere on a card opens that game. The games are moved over from the
 ## prototype one at a time (docs/MILESTONE-1.md). Above the games: who's playing (with
-## their names) and the Aa, Read to me and Who's playing buttons; a new player is first
-## asked who's playing (ProfilePicker). Settings are kept on the phone (Settings).
+## their names) and the Aa, Read to me, Noah's voice and Who's playing buttons; a new player
+## is first asked who's playing (ProfilePicker). Settings are kept on the phone (Settings).
+## Tap Noah to hear him say hello; when a game is finished he congratulates you
+## (NoahCongrats) before its story scene.
 ##
 ## Portrait only (see docs/PROJECT-SETTINGS.md). Everything sits inside the safe area,
 ## clear of the notch, the Dynamic Island, and the home bar.
@@ -67,12 +69,16 @@ var games: Dictionary = {} ## game id -> its screen, for the games moved over so
 var scenes: Dictionary = {} ## game id -> the story scene after its last round
 var game_buttons: Dictionary = {} ## game id -> the Button that is its whole card
 var noah_says: Label ## Noah's welcome, with the players' names
+var noah_button: Button ## Noah and his welcome: tap to hear him
+var noah_portrait: Control
 var name_input: LineEdit
 var co_name_input: LineEdit ## who's playing with them (optional)
 var text_size_button: Button ## Aa: Normal, Large, Extra large
 var read_aloud_button: Button
+var voice_button: Button ## Noah's voice: On or Off
 var profile_button: Button ## "Who's playing": brings the picker back
 var picker: ProfilePicker ## "Who's playing today?" over the hub
+var congrats: NoahCongrats ## Noah's "Great job!" after a game's last round
 var back_button: Button
 var game_title: Label
 var game_how: Label
@@ -99,6 +105,12 @@ func _ready() -> void:
 	add_child(page)
 	_build_hub()
 	_build_game_screen()
+	congrats = NoahCongrats.new()
+	congrats.done.connect(show_finale)
+	congrats.name_saved.connect(func() -> void:
+		name_input.text = Settings.current.player_name
+		_apply_settings())
+	add_child(congrats)
 	picker = ProfilePicker.new()
 	picker.chosen.connect(_on_profile_chosen)
 	add_child(picker)
@@ -121,6 +133,7 @@ func _apply_settings() -> void:
 	get_tree().root.content_scale_factor = settings.text_scale()
 	text_size_button.text = "Aa  %s" % Settings.TEXT_SIZE_NAMES[settings.text_size]
 	read_aloud_button.text = "Read to me: %s" % ("On" if settings.read_aloud else "Off")
+	voice_button.text = "Noah's voice: %s" % ("On" if settings.voice_on else "Off")
 	profile_button.text = "Who's playing: %s" % Settings.PROFILE_NAMES.get(settings.profile, "?")
 	noah_says.text = settings.greeting()
 
@@ -136,6 +149,30 @@ func _on_read_aloud() -> void:
 	_apply_settings()
 
 
+func _on_voice() -> void:
+	Settings.current.voice_on = not Settings.current.voice_on
+	Settings.current.save()
+	_apply_settings()
+	if Settings.current.voice_on:
+		_say_hello() # so you hear him come back on
+
+
+## Noah says his welcome aloud, bobbing as he talks.
+func _say_hello() -> void:
+	noah_says.text = Settings.current.greeting()
+	var seconds := NoahVoice.say(noah_says.text)
+	if seconds > 0.0:
+		NoahVoice.talk(noah_portrait, seconds)
+	else:
+		NoahVoice.cheer(noah_portrait) # his voice is off: he still waves hello
+
+
+## A game's last round is done: Noah says well done, then its story scene plays.
+func _on_game_finished() -> void:
+	Settings.current.complete(current_game)
+	congrats.open(current_game)
+
+
 func _on_names_changed(_text: String) -> void:
 	Settings.current.player_name = name_input.text.strip_edges()
 	Settings.current.co_play_name = co_name_input.text.strip_edges()
@@ -146,6 +183,8 @@ func _on_names_changed(_text: String) -> void:
 func show_hub() -> void:
 	current_game = ""
 	_hide_scenes()
+	congrats.visible = false
+	noah_says.text = Settings.current.greeting() # it changes once every story is finished
 	hub_scroll.visible = true
 	game_scroll.visible = false
 	game_screen.visible = false
@@ -294,25 +333,49 @@ func _build_hero() -> Control:
 	return art
 
 
-## Noah's portrait and his welcome in a speech bubble.
+## Noah's portrait and his welcome in a speech bubble, all one button: tap to hear him.
 func _build_noah_says() -> Control:
+	noah_button = Button.new()
+	noah_button.focus_mode = Control.FOCUS_NONE
+	noah_button.flat = true
+	var empty := StyleBoxEmpty.new()
+	for state in ["normal", "hover", "focus", "pressed"]:
+		noah_button.add_theme_stylebox_override(state, empty)
+	noah_button.pressed.connect(_say_hello)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 18)
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	noah_button.add_child(row)
+	row.minimum_size_changed.connect(func() -> void:
+		noah_button.custom_minimum_size.y = row.get_combined_minimum_size().y)
 	var avatar := TextureRect.new()
 	avatar.texture = NOAH
 	avatar.custom_minimum_size = Vector2(170, 170)
 	avatar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(avatar)
+	noah_portrait = avatar
 	var bubble := PanelContainer.new()
 	bubble.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bubble.add_theme_stylebox_override("panel", _box(Color(1.0, 0.98, 0.93, 0.95), 40, 0, ARK_DARK, 28))
 	row.add_child(bubble)
+	var lines := VBoxContainer.new()
+	lines.add_theme_constant_override("separation", 6)
+	lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bubble.add_child(lines)
 	noah_says = _label("Welcome, friend! Pick a game to play.", BODY_SIZE, INK, BOLD_FONT)
 	noah_says.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	bubble.add_child(noah_says)
-	return row
+	noah_says.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lines.add_child(noah_says)
+	var hint := _label("Tap Noah to hear him", SMALL_SIZE, MUTED, BODY_FONT)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lines.add_child(hint)
+	return noah_button
 
 
 ## The settings anyone can reach from the hub: text size (Aa), reading aloud, and who's playing.
@@ -327,6 +390,9 @@ func _build_tools() -> Control:
 	read_aloud_button = _pill_button()
 	read_aloud_button.pressed.connect(_on_read_aloud)
 	row.add_child(read_aloud_button)
+	voice_button = _pill_button()
+	voice_button.pressed.connect(_on_voice)
+	row.add_child(voice_button)
 	profile_button = _pill_button()
 	profile_button.pressed.connect(func() -> void: picker.visible = true)
 	row.add_child(profile_button)
@@ -503,7 +569,7 @@ func _build_game_screen() -> void:
 	for screen: StoryGameScreen in games.values():
 		screen.visible = false
 		screen.leave.connect(show_hub)
-		screen.finished.connect(show_finale)
+		screen.finished.connect(_on_game_finished)
 		game_screen.add_child(screen)
 	for scene: StoryScene in scenes.values():
 		scene.visible = false

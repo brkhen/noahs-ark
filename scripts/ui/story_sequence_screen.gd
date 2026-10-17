@@ -99,6 +99,7 @@ func _on_card(card: Button, event: Dictionary) -> void:
 	else:
 		_chime(false)
 		_say(OOPS)
+		NoahVoice.oops(noah_portrait)
 		var tween := create_tween()
 		var home := card.position.x
 		for dx: float in [-14.0, 14.0, -8.0, 0.0]:

@@ -107,6 +107,9 @@ func test_play_all_three_rounds_then_back_to_hub() -> void:
 		var last := r == 2
 		assert_eq(story.overlay_title.text, "The Whole Story!" if last else "Round Complete!")
 		story.overlay_button.pressed.emit()
+	assert_true(main.congrats.visible, "Noah says well done first")
+	assert_true(main.congrats.skip_button.visible, "and asks a new player their name")
+	main.congrats.skip_button.pressed.emit()
 	assert_true(main.finale.visible, "the rainbow scene follows the last round")
 	assert_false(story.visible)
 	assert_eq(main.finale.caption.text, StoryScene.RAINBOW_STORY[0]["text"])

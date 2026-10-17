@@ -38,6 +38,7 @@ var bubble_seconds := 2.6 ## how long Noah's words stay up
 var round_label: Label
 var noah_bubble: PanelContainer
 var noah_words: Label
+var noah_portrait: Control ## his face beside the bubble; it wiggles when he cheers
 var overlay: PanelContainer
 var overlay_title: Label
 var overlay_text: Label
@@ -47,7 +48,7 @@ var _overlay_action := "" ## what overlay_button does: "continue", "finish", or 
 var _sound: AudioStreamPlayer
 var _bubble_timer: SceneTreeTimer
 var _voice := ""
-var _tones := {} ## name -> a sound made once by _tone()
+var _tones := {} ## name -> a sound made once by make_tone()
 
 
 func _ready() -> void:
@@ -153,6 +154,7 @@ func _say(text: String) -> void:
 func _cheer(successes: int) -> void:
 	if successes == 1 or successes % 3 == 0:
 		_say(PRAISE.pick_random())
+		NoahVoice.cheer(noah_portrait)
 
 
 ## Runs action after a pause, or right away when the pause is 0 (tests).
@@ -187,13 +189,14 @@ func _chime(correct: bool) -> void:
 ## Plays notes one after another (each ringing on), made once and kept.
 func _play_tone(tone_name: String, notes: Array, gap := 0.08, ring := 0.32, fade := 14.0) -> void:
 	if not _tones.has(tone_name):
-		_tones[tone_name] = _tone(notes, gap, ring, fade)
+		_tones[tone_name] = make_tone(notes, gap, ring, fade)
 	_sound.stream = _tones[tone_name]
 	if _sound.is_inside_tree():
 		_sound.play()
 
 
-func _tone(notes: Array, gap: float, ring: float, fade: float) -> AudioStreamWAV:
+## Notes one after another, each ringing on, as a sound to play.
+static func make_tone(notes: Array, gap := 0.08, ring := 0.32, fade := 14.0) -> AudioStreamWAV:
 	var rate := 22050
 	var step := int(rate * gap)
 	var ring_samples := int(rate * ring)
@@ -242,6 +245,7 @@ func _build_top_row() -> void:
 	avatar_frame.add_theme_stylebox_override("panel", _box(CREAM, 90, 8, ARK_DARK, 0))
 	avatar_frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(avatar_frame)
+	noah_portrait = avatar_frame
 	var avatar := TextureRect.new()
 	avatar.texture = NOAH
 	avatar.custom_minimum_size = Vector2(150, 150)
