@@ -26,9 +26,12 @@ Screenshots: [hub](screenshots/hub.png), [game screen](screenshots/game_screen.p
 - [ ] **B2. Open it in Godot.** Open Godot, click **Import**, choose `~/NoahsArk/project.godot`, then **Import & Edit**.
   *Why:* Godot sets up its own cache files the first time.
 - [ ] **B3. Press Play** (the ▶ button, top right). An upright phone-shaped window shows the hub. Tap each game and Back.
-- [ ] **B4. Export the Xcode project.** In Godot: **Project → Export**, choose **iOS Simulator**, click **Export Project**, keep `builds/ios/NoahsArk.xcodeproj`, and click **Save**. Untick "Export With Debug" only if Godot asks.
-  *Why:* this is the step that turns the Godot game into an Xcode project, exactly like Backyard Dominoes.
-- [ ] **B5. Run it in the iPhone Simulator.** Double-click `~/NoahsArk/builds/ios/NoahsArk.xcodeproj` to open Xcode. At the top, choose an iPhone simulator (the largest Pro Max), then press **Run** (▶).
+- [ ] **B4. Run it in the iPhone Simulator.** In Terminal:
+  ```
+  ~/NoahsArk/tools/run_simulator.sh
+  ```
+  It exports from Godot to `builds/ios/NoahsArk.xcodeproj`, builds it, and opens it on the largest virtual iPhone. Use this again after every change.
+  *Why a script:* on an Intel Mac, Xcode's Run button builds for the wrong chip ("Undefined symbol: _main"). The script builds for the right one, the same way Backyard Dominoes does.
 
 **Not needed yet:** the Apple Developer Program ($99/year). It's only needed to put the app on your real iPhone and to publish.
 
