@@ -9,7 +9,9 @@ cd "$(dirname "$0")/.."
 
 GODOT=/Applications/Godot.app/Contents/MacOS/Godot
 BUNDLE_ID=com.brianhennington.noahsark
-ARCH=$(uname -m) # x86_64 on an Intel Mac, arm64 on Apple Silicon
+# Godot's iOS Simulator library is built for Intel (x86_64) only, so the app must be too.
+# Apple Silicon Macs run it with Rosetta.
+ARCH=x86_64
 
 echo "1/4  Exporting from Godot..."
 mkdir -p builds/ios
@@ -17,9 +19,17 @@ mkdir -p builds/ios
 
 echo "2/4  Building for the Simulator (the first time takes a few minutes)..."
 cd builds/ios
+# Hide the thousands of harmless linker warnings; show anything else.
+set +e
 xcodebuild -project NoahsArk.xcodeproj -scheme NoahsArk -configuration Debug \
-	-sdk iphonesimulator -arch "$ARCH" ONLY_ACTIVE_ARCH=NO -derivedDataPath DerivedData \
-	CODE_SIGNING_ALLOWED=NO -quiet build
+	-sdk iphonesimulator -arch "$ARCH" ARCHS="$ARCH" EXCLUDED_ARCHS= ONLY_ACTIVE_ARCH=NO \
+	-derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO -quiet build 2>&1 | grep -v "warning:"
+BUILD_STATUS=${PIPESTATUS[0]}
+set -e
+if [ "$BUILD_STATUS" -ne 0 ]; then
+	echo "The build failed. Send Bezalel a screenshot of the lines above."
+	exit 1
+fi
 APP=DerivedData/Build/Products/Debug-iphonesimulator/NoahsArk.app
 
 echo "3/4  Starting the virtual iPhone..."
