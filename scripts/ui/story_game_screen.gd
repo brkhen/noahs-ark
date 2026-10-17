@@ -49,6 +49,8 @@ var _sound: AudioStreamPlayer
 var _bubble_timer: SceneTreeTimer
 var _voice := ""
 var _tones := {} ## name -> a sound made once by make_tone()
+var _sound_until := 0 ## Time.get_ticks_msec() when the chime now playing ends
+var _spoken := 0 ## counts lines, so a line waiting for a chime can be dropped
 
 
 func _ready() -> void:
@@ -128,7 +130,7 @@ func _show_overlay(title: String, text: String, button: String, action: String, 
 	overlay_button.visible = button != ""
 	overlay_cancel.visible = can_cancel
 	overlay.visible = true
-	_speak("%s %s" % [title, text])
+	_speak("%s %s" % [title, text], action == "leave") # "Leave?" speaks at once; the others wait their turn
 
 
 func _hide_overlay() -> void:
@@ -166,14 +168,24 @@ func _after(seconds: float, action: Callable) -> void:
 
 
 ## Reads text aloud when "Read to me" is on; force reads it anyway (a Hear button was tapped).
+## A chime that's playing finishes first, so the voice never talks over it.
 func _speak(text: String, interrupt := true, force := false) -> void:
-	if not (Settings.current.read_aloud or force):
+	if not (Settings.current.read_aloud or force) or _voice == "" or text == "":
 		return
-	if _voice != "" and text != "":
+	if interrupt:
+		_spoken += 1 # a line that cuts in drops any still waiting
+	var wait := (_sound_until - Time.get_ticks_msec()) / 1000.0
+	if wait <= 0.0 or not is_inside_tree():
 		DisplayServer.tts_speak(text, _voice, 50, 1.0, 0.9, 0, interrupt)
+		return
+	var line := _spoken
+	get_tree().create_timer(wait).timeout.connect(func() -> void:
+		if line == _spoken and is_visible_in_tree():
+			DisplayServer.tts_speak(text, _voice, 50, 1.0, 0.9, 0, interrupt))
 
 
 func _stop_speaking() -> void:
+	_spoken += 1 # a line still waiting for its chime is dropped too
 	if _voice != "":
 		DisplayServer.tts_stop()
 
@@ -193,6 +205,7 @@ func _play_tone(tone_name: String, notes: Array, gap := 0.08, ring := 0.32, fade
 	_sound.stream = _tones[tone_name]
 	if _sound.is_inside_tree():
 		_sound.play()
+		_sound_until = Time.get_ticks_msec() + int(((_tones[tone_name] as AudioStreamWAV).get_length() - 0.1) * 1000.0)
 
 
 ## Notes one after another, each ringing on, as a sound to play.

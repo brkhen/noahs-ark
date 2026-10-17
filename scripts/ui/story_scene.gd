@@ -13,7 +13,9 @@ extends VBoxContainer
 ## Each scene is the prototype's own animation, recorded into a video by
 ## tools/record_finale.js. Each part of the story shows (and is read aloud) under the
 ## picture, with its verse. The videos carry the prototype's own sounds (rain, thunder,
-## hoofbeats, chimes).
+## hoofbeats, chimes). Noah calls his sons in his own voice. When a part is being read
+## aloud, the picture (and its sounds) waits at the next part until the reading is done,
+## so the words always go with what's on screen and never talk over each other.
 
 signal done ## the player tapped "Back to Hub"
 
@@ -66,7 +68,10 @@ var caption: Label
 var verse: Label
 var back_button: Button
 var part := -1 ## which part of the story is showing
+var max_hold := 10.0 ## the longest the picture waits for a reading to finish, in seconds
 var _voice := ""
+var _held := 0.0 ## how long the picture has waited so far
+var _reading := false ## a part was read aloud, and may still be going
 
 
 static func rainbow() -> StoryScene:
@@ -172,38 +177,68 @@ func play() -> void:
 
 func stop() -> void:
 	video.stop()
+	video.paused = false
+	_reading = false
 	if _voice != "":
 		DisplayServer.tts_stop()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not visible or not video.is_playing():
 		return
-	show_at(video.stream_position)
+	if video.paused: # waiting for the reading to finish
+		_held += delta
+		if not _still_reading() or _held >= max_hold:
+			video.paused = false
+			_show_part(_part_at(video.stream_position))
+		return
+	var now := _part_at(video.stream_position)
+	if now == part:
+		return
+	if _still_reading():
+		video.paused = true
+		_held = 0.0
+		return
+	_show_part(now)
 
 
 ## Shows the part of the story for this moment of the video.
 func show_at(seconds: float) -> void:
+	var now := _part_at(seconds)
+	if now != part:
+		_show_part(now)
+
+
+func _part_at(seconds: float) -> int:
 	var now := 0
 	for i in story.size():
 		if seconds >= story[i]["at"]:
 			now = i
-	if now != part:
-		_show_part(now)
+	return now
+
+
+func _still_reading() -> bool:
+	_reading = _reading and DisplayServer.tts_is_speaking()
+	return _reading
 
 
 func _show_part(index: int) -> void:
 	part = index
 	caption.text = story[index]["text"]
 	verse.text = story[index]["verse"]
-	if _voice != "" and Settings.current.read_aloud:
-		DisplayServer.tts_speak(caption.text, _voice, 50, 1.0, 0.9, 0, true)
+	var text: String = caption.text
+	if text.begins_with("\u201c") and NoahVoice.say(text.trim_prefix("\u201c").trim_suffix("\u201d")) > 0.0:
+		_reading = true # Noah calls this himself
+	elif _voice != "" and Settings.current.read_aloud:
+		DisplayServer.tts_speak(text, _voice, 50, 1.0, 0.9, 0, true)
+		_reading = true
 
 
 ## When the video ends, its last picture stays (the family under the rainbow, or the ark in the rain).
 func _on_video_finished() -> void:
 	video.visible = false
-	_show_part(story.size() - 1)
+	if part != story.size() - 1: # not read twice
+		_show_part(story.size() - 1)
 
 
 func _box(fill: Color, radius: int, border: int, border_color: Color, margin: float) -> StyleBoxFlat:

@@ -131,9 +131,16 @@ func open(game: String) -> void:
 	name_input.text = ""
 	_waiting += 1
 	visible = true
-	if _sound.is_inside_tree():
-		_sound.play()
-	_say(words.text)
+	if not _sound.is_inside_tree():
+		_say(words.text)
+		return
+	_sound.play()
+	# Noah speaks once his chime has rung, not over it.
+	var hold := _waiting
+	var line := words.text
+	get_tree().create_timer(_sound.stream.get_length()).timeout.connect(func() -> void:
+		if hold == _waiting and visible:
+			_say(line))
 
 
 ## Save, No thanks, or the button to the scene. With a name, Noah says hello to it first.
