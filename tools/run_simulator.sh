@@ -40,7 +40,8 @@ if [ -z "$DEVICE" ]; then
 	DEVICE=$(xcrun simctl list devices available | grep -E "iPhone" | tail -1 | grep -oE "[0-9A-F-]{36}")
 fi
 xcrun simctl boot "$DEVICE" 2>/dev/null || true # already on is fine
-open "$(xcode-select -p)/Applications/Simulator.app"
+# Open the Simulator app by its ID (its location differs between Xcode versions).
+open -b com.apple.iphonesimulator || echo "(Couldn't open the Simulator window. Open Xcode, then Xcode > Open Developer Tool > Simulator.)"
 
 echo "4/4  Installing and opening Noah's Ark..."
 xcrun simctl install "$DEVICE" "$APP"
