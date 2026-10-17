@@ -84,6 +84,7 @@ func _on_card(i: int) -> void:
 			for k: int in pair:
 				_show_matched(k)
 			_chime(true)
+			Settings.current.find_animal(game.deck[i]) # for the Hall of the Ark
 			_speak(_plural(game.deck[i]))
 			if game.round_done():
 				_say("")

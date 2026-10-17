@@ -10,3 +10,5 @@ Rendered from the web prototype's own drawings (`docs/prototype/story-games.html
 | `banner_*.png` | The little pictures on each game's card. The prototype's Story Sequence banner used emoji (hammer, rain, rainbow); here they're replaced with the prototype's own drawn log pile, rain cloud and a drawn rainbow, so all the art is original. |
 
 These are placeholders for the painted illustrations described in the Illustration Art Direction Brief.
+| `family_*.png` | Noah, Shem, Ham and Japheth's faces from the Hall of the Ark (`tools/hallcap.js`) |
+| `promise.png` | The rainbow promise picture on the hub (`tools/hallcap.js`) |

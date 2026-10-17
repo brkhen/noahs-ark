@@ -90,7 +90,7 @@ func _pick(kind: String) -> void:
 func _hear() -> void:
 	var voices := DisplayServer.tts_get_voices_for_language("en")
 	if not voices.is_empty():
-		DisplayServer.tts_speak(SPOKEN, voices[0], 50, 1.0, 0.9, 0, true)
+		DisplayServer.tts_speak(SPOKEN, voices[0], Settings.current.tts_volume(), 1.0, Settings.current.rate(), 0, true)
 
 
 ## One choice: its name in bold and what it sets up, the whole card one button.

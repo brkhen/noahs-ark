@@ -20,6 +20,7 @@ extends VBoxContainer
 ## stand out, and come back up after.
 
 signal done ## the player tapped "Back to Hub"
+signal ended ## the video played to its end
 
 const TITLE_FONT := preload("res://assets/fonts/Cinzel-700.ttf")
 const BODY_FONT := preload("res://assets/fonts/Quicksand-600.ttf")
@@ -236,13 +237,14 @@ func _show_part(index: int) -> void:
 	if text.begins_with("\u201c") and NoahVoice.say(text.trim_prefix("\u201c").trim_suffix("\u201d")) > 0.0:
 		_reading = true # Noah calls this himself
 	elif _voice != "" and Settings.current.read_aloud:
-		DisplayServer.tts_speak(text, _voice, 50, 1.0, 0.9, 0, true)
+		DisplayServer.tts_speak(text, _voice, Settings.current.tts_volume(), 1.0, Settings.current.rate(), 0, true)
 		_reading = true
 
 
 ## When the video ends, its last picture stays (the family under the rainbow, or the ark in the rain).
 func _on_video_finished() -> void:
 	video.visible = false
+	ended.emit()
 	if part != story.size() - 1: # not read twice
 		_show_part(story.size() - 1)
 

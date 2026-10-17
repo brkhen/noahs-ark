@@ -1,5 +1,7 @@
 class_name WordSearchScreen
 extends StoryGameScreen
+
+signal met(person: String) ## NOAH, SHEM, HAM or JAPHETH was found for the first time
 ## Word Search, laid out like the web prototype's (docs/prototype/): a square of letters as
 ## wide as the panel, the words to find below it, and a button that reads them aloud. Tap a
 ## word's first letter and then its last, or slide a finger across it. A found word turns
@@ -159,6 +161,9 @@ func _check(line: Array) -> void:
 		_chime(false)
 		return
 	_chime(true)
+	var person := Settings.current.find_word(word) # for the Hall of the Ark
+	if person != "":
+		met.emit(person)
 	_speak(game.label_of(word))
 	_mark_found(chips[word])
 	if game.round_done():

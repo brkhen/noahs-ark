@@ -6,7 +6,9 @@ extends Control
 ## their names) and the Aa, Read to me, Noah's voice and Who's playing buttons; a new player
 ## is first asked who's playing (ProfilePicker). Settings are kept on the phone (Settings).
 ## Tap Noah to hear him say hello; when a game is finished he congratulates you
-## (NoahCongrats) before its story scene.
+## (NoahCongrats) before its story scene. Below the games, as in the prototype: the
+## rainbow promise (locked until the rainbow scene has played), Settings, the Hall of the
+## Ark, Start over, and notes for parents and teachers.
 ##
 ## Portrait only (see docs/PROJECT-SETTINGS.md). Everything sits inside the safe area,
 ## clear of the notch, the Dynamic Island, and the home bar.
@@ -17,6 +19,24 @@ const BOLD_FONT := preload("res://assets/fonts/Quicksand-700.ttf")
 const BACKDROP := preload("res://assets/art/hub/backdrop.png")
 const HERO := preload("res://assets/art/hub/hero.png")
 const NOAH := preload("res://assets/art/hub/noah_avatar.png")
+const PROMISE := preload("res://assets/art/hub/promise.png")
+## The promise picture in grey until it's unlocked, like the prototype's grayscale filter.
+const GREY_SHADER := """
+shader_type canvas_item;
+uniform bool grey = true;
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	if (grey) {
+		c.rgb = vec3(dot(c.rgb, vec3(0.299, 0.587, 0.114)) * 0.62); // the prototype's 0.5, a little lighter to read
+	}
+	COLOR = c * COLOR;
+}
+"""
+const PARENT_NOTES := [
+	"Ask: why do you think Noah listened to God even when it seemed strange to everyone else?",
+	"Talk about patience. Noah and his family waited a long time inside the ark before it was time to come out.",
+	"The rainbow is described as a promise. Ask what promises your family keeps to each other.",
+]
 const BANNERS := {
 	"word_search": preload("res://assets/art/hub/banner_word_search.png"),
 	"memory_match": preload("res://assets/art/hub/banner_memory_match.png"),
@@ -68,6 +88,21 @@ var building: StoryScene ## the ark being built, after Word Search's last round
 var games: Dictionary = {} ## game id -> its screen, for the games moved over so far
 var scenes: Dictionary = {} ## game id -> the story scene after its last round
 var game_buttons: Dictionary = {} ## game id -> the Button that is its whole card
+var game_badges: Dictionary = {} ## game id -> its "Done" badge
+var promise_art: TextureRect
+var promise_label: Label
+var settings_panel: SettingsPanel
+var settings_button: Button ## opens and closes Settings
+var hall_button: Button
+var hall: HallScreen
+var start_over_button: Button
+var parents_button: Button ## opens and closes For Parents & Teachers
+var parents_notes: VBoxContainer
+var confirm: Control ## "Start over?"
+var confirm_yes: Button
+var confirm_no: Button
+var toast: PanelContainer ## "You met Shem!"
+var _toast_count := 0
 var noah_says: Label ## Noah's welcome, with the players' names
 var noah_button: Button ## Noah and his welcome: tap to hear him
 var noah_portrait: Control
@@ -105,6 +140,8 @@ func _ready() -> void:
 	add_child(page)
 	_build_hub()
 	_build_game_screen()
+	_build_toast()
+	_build_confirm()
 	congrats = NoahCongrats.new()
 	congrats.done.connect(show_finale)
 	congrats.name_saved.connect(func() -> void:
@@ -131,6 +168,16 @@ func _on_profile_chosen(kind: String) -> void:
 func _apply_settings() -> void:
 	var settings := Settings.current
 	get_tree().root.content_scale_factor = settings.text_scale()
+	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(settings.volume, 0.0001)))
+	AudioServer.set_bus_mute(0, settings.volume <= 0.0)
+	for id: String in game_badges:
+		game_badges[id].visible = id in settings.completed
+	(promise_art.material as ShaderMaterial).set_shader_parameter("grey", not settings.rainbow_seen)
+	promise_label.text = "The Promise: you saw the rainbow!" if settings.rainbow_seen else "Finish Story Sequence to see the promise"
+	promise_label.add_theme_color_override("font_color", ARK_DARK if settings.rainbow_seen else MUTED)
+	hall_button.text = "Hall of the Ark: meet Noah and his sons (%d/%d), and see what you've found" % [
+		settings.family_met.size(), HallScreen.FAMILY.size()]
+	settings_panel.refresh()
 	text_size_button.text = "Aa  %s" % Settings.TEXT_SIZE_NAMES[settings.text_size]
 	read_aloud_button.text = "Read to me: %s" % ("On" if settings.read_aloud else "Off")
 	voice_button.text = "Noah's voice: %s" % ("On" if settings.voice_on else "Off")
@@ -184,6 +231,8 @@ func show_hub() -> void:
 	current_game = ""
 	_hide_scenes()
 	congrats.visible = false
+	hall.visible = false
+	_apply_settings() # badges, the promise, the Hall's count
 	noah_says.text = Settings.current.greeting() # it changes once every story is finished
 	hub_scroll.visible = true
 	game_scroll.visible = false
@@ -200,6 +249,7 @@ func open_game(id: String) -> void:
 	_hide_scenes()
 	for key: String in games:
 		games[key].visible = key == id
+	hall.visible = false
 	placeholder.visible = not games.has(id)
 	if games.has(id):
 		games[id].start()
@@ -207,6 +257,67 @@ func open_game(id: String) -> void:
 	game_scroll.visible = true
 	game_screen.visible = true
 	game_scroll.scroll_vertical = 0
+
+
+## The Hall of the Ark, in place of a game, with Back to the hub.
+func open_hall() -> void:
+	current_game = "hall"
+	_hide_scenes()
+	for screen: StoryGameScreen in games.values():
+		screen.visible = false
+	placeholder.visible = false
+	hall.refresh()
+	hall.visible = true
+	hub_scroll.visible = false
+	game_scroll.visible = true
+	game_screen.visible = true
+	game_scroll.scroll_vertical = 0
+
+
+## Start over: asks first, then forgets everything, as on a first visit.
+func ask_start_over() -> void:
+	confirm.visible = true
+
+
+func start_over() -> void:
+	confirm.visible = false
+	Settings.start_over()
+	name_input.text = ""
+	co_name_input.text = ""
+	_apply_settings()
+	picker.visible = true # who's playing, as on a first visit
+
+
+## "You met Shem!" along the bottom, with his face, for a few seconds (tap to close).
+func show_met(person: String) -> void:
+	var who := HallScreen.family_of(person)
+	for child in toast.get_children():
+		toast.remove_child(child)
+		child.queue_free()
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 22)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast.add_child(row)
+	row.add_child(HallScreen.portrait(person, 150, false))
+	var words_column := VBoxContainer.new()
+	words_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	words_column.alignment = BoxContainer.ALIGNMENT_CENTER
+	words_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(words_column)
+	var title := _label("You met %s!" % who["name"], 48, ARK_DARK, TITLE_FONT)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	words_column.add_child(title)
+	var blurb := _label(who["blurb"], 36, INK, BODY_FONT)
+	blurb.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	words_column.add_child(blurb)
+	_ignore_mouse(row)
+	toast.visible = true
+	_toast_count += 1
+	var mine := _toast_count
+	if is_inside_tree():
+		get_tree().create_timer(7.0).timeout.connect(func() -> void:
+			if mine == _toast_count:
+				toast.visible = false)
 
 
 ## After a game's last round, its story scene: after Story Sequence the flood goes down
@@ -276,8 +387,141 @@ func _build_hub() -> void:
 		var card := _game_card(game)
 		cards.add_child(card)
 		game_buttons[game["id"]] = card
+	cards.add_child(_build_promise())
+	settings_panel = SettingsPanel.new()
+	settings_panel.visible = false
+	settings_panel.changed.connect(_apply_settings)
+	settings_panel.profile_picked.connect(_on_profile_chosen)
+	settings_button = _fold_button("Settings", settings_panel)
+	cards.add_child(settings_button)
+	cards.add_child(settings_panel)
+	hall_button = _link_button("", ARK_DARK)
+	hall_button.pressed.connect(open_hall)
+	cards.add_child(hall_button)
+	start_over_button = _link_button("Start over (clears progress)", Color("#A05A3C"))
+	start_over_button.pressed.connect(ask_start_over)
+	cards.add_child(start_over_button)
+	parents_notes = _column()
+	parents_notes.add_theme_constant_override("separation", 16)
+	parents_notes.visible = false
+	for note: String in PARENT_NOTES:
+		var line := _label("\u2022  " + note, SMALL_SIZE, INK, BODY_FONT)
+		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		parents_notes.add_child(line)
+	parents_button = _fold_button("For Parents & Teachers", parents_notes)
+	cards.add_child(parents_button)
+	cards.add_child(parents_notes)
 	hub_bottom = Control.new()
 	hub.add_child(hub_bottom)
+
+
+## The rainbow promise: the rainbow, the ark and the family, grey and locked until the
+## rainbow scene (after Story Sequence) has played.
+func _build_promise() -> Control:
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _box(Color("#F0E2C4"), 40, 0, CARD_EDGE, 28))
+	var column := _column()
+	column.add_theme_constant_override("separation", 14)
+	card.add_child(column)
+	promise_art = TextureRect.new()
+	promise_art.texture = PROMISE
+	promise_art.expand_mode = TextureRect.EXPAND_FIT_HEIGHT_PROPORTIONAL
+	promise_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	promise_art.custom_minimum_size.x = 0
+	var shader := Shader.new()
+	shader.code = GREY_SHADER
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	promise_art.material = material
+	column.add_child(promise_art)
+	promise_label = _label("", SMALL_SIZE, MUTED, TITLE_FONT)
+	column.add_child(promise_label)
+	return card
+
+
+## A heading that opens and closes the section under it, like the prototype's details.
+func _fold_button(title: String, section: Control) -> Button:
+	var button := _pill_button()
+	button.custom_minimum_size.y = 110
+	button.add_theme_font_override("font", TITLE_FONT)
+	button.add_theme_font_size_override("font_size", 44)
+	var show_state := func() -> void:
+		button.text = ("%s  \u25B2" if section.visible else "%s  \u25BC") % title
+	show_state.call()
+	button.pressed.connect(func() -> void:
+		section.visible = not section.visible
+		show_state.call())
+	return button
+
+
+## A plain line of text that's a button, like the prototype's link buttons.
+func _link_button(text: String, color: Color) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.flat = true
+	button.focus_mode = Control.FOCUS_NONE
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.custom_minimum_size.y = 100
+	button.add_theme_font_override("font", BOLD_FONT)
+	button.add_theme_font_size_override("font_size", SMALL_SIZE)
+	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		button.add_theme_color_override(key, color)
+	var empty := StyleBoxEmpty.new()
+	for state in ["normal", "hover", "focus", "pressed"]:
+		button.add_theme_stylebox_override(state, empty)
+	return button
+
+
+## "Start over?" over everything, asking first.
+func _build_confirm() -> void:
+	confirm = Control.new()
+	confirm.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	confirm.mouse_filter = Control.MOUSE_FILTER_STOP
+	confirm.visible = false
+	add_child(confirm)
+	var dim := ColorRect.new()
+	dim.color = Color(0.16, 0.11, 0.07, 0.72)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	confirm.add_child(dim)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	confirm.add_child(center)
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _box(PANEL, 48, 6, GOLD, 44))
+	card.custom_minimum_size.x = 860
+	center.add_child(card)
+	var column := _column()
+	card.add_child(column)
+	column.add_child(_label("Start over?", 60, ARK_DARK, TITLE_FONT))
+	column.add_child(_label("This clears the finished games, everything found in the Hall of the Ark, and your saved name. It can't be undone.", BODY_SIZE, INK))
+	confirm_yes = _pill_button()
+	confirm_yes.text = "Start over"
+	confirm_yes.pressed.connect(start_over)
+	column.add_child(confirm_yes)
+	confirm_no = _pill_button()
+	confirm_no.text = "Keep my progress"
+	confirm_no.pressed.connect(func() -> void: confirm.visible = false)
+	column.add_child(confirm_no)
+
+
+## "You met Shem!", along the bottom of the screen.
+func _build_toast() -> void:
+	toast = PanelContainer.new()
+	toast.add_theme_stylebox_override("panel", _box(CREAM, 40, 6, GOLD, 26))
+	toast.anchor_left = 0.0
+	toast.anchor_right = 1.0
+	toast.anchor_top = 1.0
+	toast.anchor_bottom = 1.0
+	toast.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	toast.offset_left = 30
+	toast.offset_right = -30
+	toast.offset_bottom = -140
+	toast.visible = false
+	toast.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed:
+			toast.visible = false)
+	add_child(toast)
 
 
 ## The painted ark scene in a gold-edged frame, with the title across its sky.
@@ -497,6 +741,15 @@ func _game_card(game: Dictionary) -> Button:
 	text.alignment = BoxContainer.ALIGNMENT_CENTER
 	text.add_theme_constant_override("separation", 10)
 	row.add_child(text)
+	var badge := _label("\u2713 Done", 32, Color("#3E7A47"), BOLD_FONT)
+	badge.autowrap_mode = TextServer.AUTOWRAP_OFF
+	var badge_box := _box(Color("#DCEFDD"), 24, 0, CARD_EDGE, 6)
+	badge_box.content_margin_left = 20
+	badge_box.content_margin_right = 20
+	badge.add_theme_stylebox_override("normal", badge_box)
+	badge.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	text.add_child(badge)
+	game_badges[game["id"]] = badge
 	var title := _label(game["title"], CARD_TITLE_SIZE, ARK_DARK, TITLE_FONT)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	text.add_child(title)
@@ -575,6 +828,11 @@ func _build_game_screen() -> void:
 		scene.visible = false
 		scene.done.connect(show_hub)
 		game_screen.add_child(scene)
+	finale.ended.connect(func() -> void: Settings.current.see_rainbow()) # the promise unlocks
+	words.met.connect(show_met)
+	hall = HallScreen.new()
+	hall.visible = false
+	game_screen.add_child(hall)
 	game_bottom = Control.new()
 	game_screen.add_child(game_bottom)
 

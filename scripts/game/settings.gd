@@ -17,6 +17,10 @@ const TEXT_SIZE_NAMES := {"normal": "Normal", "large": "Large", "xlarge": "Extra
 ## were laid out at, as in the prototype, where phones start at Large.
 const TEXT_SCALE := {"normal": 0.9, "large": 1.0, "xlarge": 1.15}
 const GAMES := ["word_search", "memory_match", "story_sequence"]
+## Voice speed: how fast the reader and Noah speak (DisplayServer.tts_speak's rate).
+const RATES := {"slow": 0.9, "normal": 1.05}
+## Words that introduce a person in the Hall of the Ark, as in the prototype's WS_FAMILY.
+const FAMILY_WORDS := {"NOAH": "noah", "SHEM": "shem", "HAM": "ham", "JAPHETH": "japheth"}
 
 static var path := "user://settings.cfg" ## tests point this somewhere else
 static var current := Settings.new()
@@ -28,6 +32,14 @@ var text_size := "large"
 var read_aloud := false ## read the words on screen aloud
 var voice_on := true ## Noah speaks in his own voice (NoahVoice)
 var completed: Array = [] ## the games played to the end, by id
+var volume := 1.0 ## 0 to 1, for every sound and voice
+var speech_rate := "slow" ## "slow" or "normal" (RATES)
+var rainbow_seen := false ## the rainbow scene has played: the promise on the hub is unlocked
+## Found across every visit, for the Hall of the Ark.
+var words_found: Array = [] ## Word Search words, like "NOAH"
+var animals_found: Array = [] ## Memory Match animals, like "lion"
+var events_found: Array = [] ## Story Sequence event ids, like "build"
+var family_met: Array = [] ## "noah", "shem", "ham", "japheth"
 
 
 ## Loads the saved settings into current (or fresh ones, the first time).
@@ -42,6 +54,15 @@ static func load_saved() -> Settings:
 		current.read_aloud = file.get_value("player", "read_aloud", false)
 		current.voice_on = file.get_value("player", "voice_on", true)
 		current.completed = file.get_value("player", "completed", [])
+		current.volume = clampf(file.get_value("player", "volume", 1.0), 0.0, 1.0)
+		current.speech_rate = file.get_value("player", "speech_rate", "slow")
+		current.rainbow_seen = file.get_value("player", "rainbow_seen", false)
+		current.words_found = file.get_value("hall", "words", [])
+		current.animals_found = file.get_value("hall", "animals", [])
+		current.events_found = file.get_value("hall", "events", [])
+		current.family_met = file.get_value("hall", "family", [])
+	if not RATES.has(current.speech_rate):
+		current.speech_rate = "slow"
 	if not current.text_size in TEXT_SIZES:
 		current.text_size = "large"
 	return current
@@ -56,6 +77,13 @@ func save() -> void:
 	file.set_value("player", "read_aloud", read_aloud)
 	file.set_value("player", "voice_on", voice_on)
 	file.set_value("player", "completed", completed)
+	file.set_value("player", "volume", volume)
+	file.set_value("player", "speech_rate", speech_rate)
+	file.set_value("player", "rainbow_seen", rainbow_seen)
+	file.set_value("hall", "words", words_found)
+	file.set_value("hall", "animals", animals_found)
+	file.set_value("hall", "events", events_found)
+	file.set_value("hall", "family", family_met)
 	file.save(path)
 
 
@@ -86,6 +114,55 @@ func text_scale() -> float:
 ## "Sam", "Sam and Grandpa", or "" when no names are given.
 func names() -> String:
 	return " and ".join([player_name.strip_edges(), co_play_name.strip_edges()].filter(func(n: String) -> bool: return n != ""))
+
+
+## Start over: forgets everything (progress, names and choices), as on a first visit.
+static func start_over() -> Settings:
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	current = Settings.new()
+	return current
+
+
+## The rate to pass to DisplayServer.tts_speak.
+func rate() -> float:
+	return RATES[speech_rate]
+
+
+## The volume to pass to DisplayServer.tts_speak (0 to 100). Half is the phone's usual level.
+func tts_volume() -> int:
+	return int(round(50.0 * volume))
+
+
+## A word found in Word Search. Returns the person it introduces ("shem"), if met for the
+## first time; otherwise "".
+func find_word(word: String) -> String:
+	var met := ""
+	if not word in words_found:
+		words_found.append(word)
+	var person: String = FAMILY_WORDS.get(word, "")
+	if person != "" and not person in family_met:
+		family_met.append(person)
+		met = person
+	save()
+	return met
+
+
+func find_animal(animal: String) -> void:
+	if not animal in animals_found:
+		animals_found.append(animal)
+		save()
+
+
+func find_event(id: String) -> void:
+	if not id in events_found:
+		events_found.append(id)
+		save()
+
+
+func see_rainbow() -> void:
+	if not rainbow_seen:
+		rainbow_seen = true
+		save()
 
 
 ## A game was played to the end.

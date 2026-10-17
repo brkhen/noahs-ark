@@ -176,12 +176,12 @@ func _speak(text: String, interrupt := true, force := false) -> void:
 		_spoken += 1 # a line that cuts in drops any still waiting
 	var wait := (_sound_until - Time.get_ticks_msec()) / 1000.0
 	if wait <= 0.0 or not is_inside_tree():
-		DisplayServer.tts_speak(text, _voice, 50, 1.0, 0.9, 0, interrupt)
+		DisplayServer.tts_speak(text, _voice, Settings.current.tts_volume(), 1.0, Settings.current.rate(), 0, interrupt)
 		return
 	var line := _spoken
 	get_tree().create_timer(wait).timeout.connect(func() -> void:
 		if line == _spoken and is_visible_in_tree():
-			DisplayServer.tts_speak(text, _voice, 50, 1.0, 0.9, 0, interrupt))
+			DisplayServer.tts_speak(text, _voice, Settings.current.tts_volume(), 1.0, Settings.current.rate(), 0, interrupt))
 
 
 func _stop_speaking() -> void:

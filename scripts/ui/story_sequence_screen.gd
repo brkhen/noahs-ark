@@ -90,6 +90,7 @@ func _on_card(card: Button, event: Dictionary) -> void:
 		slot.scale = Vector2(1.15, 1.15)
 		create_tween().tween_property(slot, "scale", Vector2.ONE, 0.3)
 		_chime(true)
+		Settings.current.find_event(event["id"]) # for the Hall of the Ark
 		_speak(event["label"])
 		if game.round_done():
 			_say("")

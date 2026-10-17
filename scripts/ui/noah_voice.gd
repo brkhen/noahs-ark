@@ -10,7 +10,6 @@ extends RefCounted
 ## they can stay silent.
 const PREFERRED := ["Daniel", "Aaron", "Arthur", "Gordon", "Rishi", "David", "Male"]
 const PITCH := 0.82
-const RATE := 0.9 ## the prototype's slow pace, which every profile starts with
 ## If the phone says it has stopped speaking before this share of the line's time has
 ## passed, the line was never heard: the voice is silent on this phone. It's said again
 ## the way the reader says things (which works), and Noah keeps that voice from then on.
@@ -31,7 +30,7 @@ static func say(text: String) -> float:
 		return 0.0
 	_line += 1
 	var line := _line
-	DisplayServer.tts_speak(text, id, 50, _pitch, RATE, 0, true)
+	DisplayServer.tts_speak(text, id, Settings.current.tts_volume(), _pitch, Settings.current.rate(), 0, true)
 	var tree := Engine.get_main_loop() as SceneTree
 	if tree != null and DisplayServer.get_name() != "headless":
 		tree.create_timer(seconds_for(text) * SILENT_SHARE).timeout.connect(func() -> void:
@@ -48,7 +47,7 @@ static func _fall_back(text: String) -> void:
 	print("Noah's voice %s was silent; using %s" % [_voice, voices[0]])
 	_voice = voices[0]
 	_pitch = 1.0
-	DisplayServer.tts_speak(text, _voice, 50, _pitch, RATE, 0, true)
+	DisplayServer.tts_speak(text, _voice, Settings.current.tts_volume(), _pitch, Settings.current.rate(), 0, true)
 
 
 ## About how long text takes to say (the prototype allows 68 ms a letter).

@@ -186,7 +186,7 @@ func _say(text: String) -> float:
 	if seconds == 0.0 and Settings.current.read_aloud:
 		var voices := DisplayServer.tts_get_voices_for_language("en")
 		if not voices.is_empty():
-			DisplayServer.tts_speak(text, voices[0], 50, 1.0, 0.9, 0, true)
+			DisplayServer.tts_speak(text, voices[0], Settings.current.tts_volume(), 1.0, Settings.current.rate(), 0, true)
 			seconds = NoahVoice.seconds_for(text)
 	if seconds > 0.0:
 		NoahVoice.talk(portrait, seconds)
