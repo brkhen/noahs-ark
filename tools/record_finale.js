@@ -1,14 +1,18 @@
 // Records the prototype's Story Sequence finale, frame by frame on virtual time.
-// Usage: NODE_PATH=$(npm root -g) node tools/record_finale.js <frames folder> 24 26
+// Usage: NODE_PATH=$(npm root -g) node tools/record_finale.js <frames folder> 24 27
 // then: ffmpeg -framerate 24 -start_number 3 -i <frames folder>/%04d.png -c:v libtheora -q:v 7 -pix_fmt yuv420p assets/video/rainbow_finale.ogv
 // (frames 0-2 are the page still fading in, so the video starts at frame 3)
 const { chromium } = require('playwright');
 const fs = require('fs');
+const SCALE = 2.5; // 1060x850 frames: sharp on a phone, light enough to play smoothly
 const out = process.argv[2], FPS = +(process.argv[3] || 24), SECS = +(process.argv[4] || 30);
 (async () => {
   const b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: { width: 440, height: 956 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+  const ctx = await b.newContext({ viewport: { width: 440, height: 956 }, deviceScaleFactor: SCALE, isMobile: true, hasTouch: true });
   const p = await ctx.newPage();
+  // Virtual time only moves timers, not screen frames, so drive requestAnimationFrame from a
+  // timer; otherwise the walkers leaving the ark jump straight to where they end up.
+  await p.addInitScript(() => { window.requestAnimationFrame = cb => setTimeout(() => cb(performance.now()), 1000 / 60); });
   await p.goto('file://' + require('path').resolve(__dirname, '../docs/prototype/story-games.html'));
   await p.waitForTimeout(2000);
   for (const sel of ['[data-profile="grownup"]', '#introDismissBtn', '#ncGo']) {
@@ -28,7 +32,7 @@ const out = process.argv[2], FPS = +(process.argv[3] || 24), SECS = +(process.ar
       const msg = !rb.classList.contains('hidden') ? document.getElementById('rainbowMsg') : document.getElementById('finaleMsg');
       return { x: r.x - scrollX, y: r.y - scrollY, w: r.width, h: r.height, msg: msg.classList.contains('show') ? msg.textContent : '' };
     });
-    const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: box.x, y: box.y, width: box.w, height: box.h, scale: 3 } });
+    const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: box.x, y: box.y, width: box.w, height: box.h, scale: SCALE } });
     fs.writeFileSync(`${out}/${String(i).padStart(4, '0')}.png`, Buffer.from(shot.data, 'base64'));
     fs.appendFileSync(`${out}/captions.txt`, `${i}\t${box.msg}\n`);
   }
